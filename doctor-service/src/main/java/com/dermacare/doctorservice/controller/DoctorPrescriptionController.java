@@ -77,12 +77,12 @@ public class DoctorPrescriptionController {
         Response response = service.getPrescriptionsByClinicId(clinicId);
         return ResponseEntity.status(response.getStatus()).body(response);
     }
-    
-    @GetMapping("/medicineTypes")
-    public List<MedicineType> getAllMedicineTypes() {
-        
-        return Arrays.asList(MedicineType.values());
-    }
+//    
+//    @GetMapping("/medicineTypes")
+//    public List<MedicineType> getAllMedicineTypes() {
+//        
+//        return Arrays.asList(MedicineType.values());
+//    }
 
 
 }

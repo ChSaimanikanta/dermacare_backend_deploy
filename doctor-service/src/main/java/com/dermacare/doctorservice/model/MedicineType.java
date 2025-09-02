@@ -1,66 +1,22 @@
 package com.dermacare.doctorservice.model;
 
+import java.util.List;
 
+import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.mapping.Document;
 
-public enum MedicineType {
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
-    TABLET,
-    CAPSULE,
-    POWDER,
-    GRANULE,
-    PILL,
-    SUPPOSITORY,
-    TROCHE,
+@Data
+@AllArgsConstructor
+@NoArgsConstructor
+@Document(collection = "medicineType")
+public class MedicineType {
 
-   
-    OINTMENT,
-    CREAM,
-    GEL,
-    PASTE,
-    LOTION,
-    EMULSION,
-    LINIMENT,
-
-   
-    SYRUP,
-    SOLUTION,
-    SUSPENSION,
-    ELIXIR,
-    DROPS,
-
-
-    INJECTION_SOLUTION,
-    INJECTION_SUSPENSION,
-    LYOPHILIZED_POWDER,
-    INFUSION,
-    PREFILLED_SYRINGE,
-    IMPLANT,
-
-    
-    PATCH,
-    SPRAY,
-    MEDICATED_POWDER,
-    PAINT,
-
- 
-    MDI, 
-    DPI, 
-    NEBULIZER,
-    INHALATION_GAS,
-
-    EYE_DROPS,
-    EYE_OINTMENT,
-    EAR_DROPS,
-    NASAL_DROPS,
-    NASAL_SPRAY,
-
-    BUCCAL_FILM,
-    ORAL_FILM,
-    VAGINAL_TABLET,
-    PESSARY,
-    IUD,
-    SHAMPOO,
-    MOUTHWASH,
-    GARGLE
+    @Id
+    private String id;
+    private String clinicId;
+    private List<String> medicineTypes; 
 }
-
