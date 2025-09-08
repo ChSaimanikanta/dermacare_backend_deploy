@@ -3,7 +3,7 @@ spring:
     name: customerservice
   data:
     mongodb:
-      uri: mongodb://mongodb:27017/customerService
+      uri: mongodb://localhost:27017/customerService
  
 server:
   port: 8083
