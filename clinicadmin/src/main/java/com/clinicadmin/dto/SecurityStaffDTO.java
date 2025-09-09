@@ -1,8 +1,5 @@
 package com.clinicadmin.dto;
 
-import java.util.List;
-import java.util.Map;
-
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -16,57 +13,54 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 public class SecurityStaffDTO {
 
-    private String securityStaffId;
-    
-    private String clinicId;
-    @NotBlank(message = "Full Name is mandatory")
-    private String fullName;
+	private String securityStaffId;
 
-    @NotBlank(message = "Date of Birth is mandatory")
-    private String dateOfBirth;
+	private String clinicId;
 
-    @NotBlank(message = "Gender is mandatory")
-    private String gender;
+	private String role = "SECURITY";
 
-    @NotBlank(message = "Contact Number is mandatory")
-    @Pattern(regexp = "^[0-9]{10}$", message = "Contact Number must be 10 digits")
-    private String contactNumber;
+	@NotBlank(message = "Full Name is mandatory")
+	private String fullName;
 
-    @NotBlank(message = "Government ID is mandatory")
-    private String govermentId;
+	@NotBlank(message = "Date of Birth is mandatory")
+	private String dateOfBirth;
 
-    @NotBlank(message = "Date of Joining is mandatory")
-    private String dateOfJoining;
+	@NotBlank(message = "Gender is mandatory")
+	private String gender;
 
-    @NotBlank(message = "Department is mandatory")
-    private String department;
+	@NotBlank(message = "Contact Number is mandatory")
+	@Pattern(regexp = "^[0-9]{10}$", message = "Contact Number must be 10 digits")
+	private String contactNumber;
 
-    @NotNull(message = "Address is mandatory")
-    private Address address;
+	@NotBlank(message = "Government ID is mandatory")
+	private String govermentId;
 
-    @NotNull(message = "Bank Account Details are mandatory")
-    private BankAccountDetails bankAccountDetails;
+	@NotBlank(message = "Date of Joining is mandatory")
+	private String dateOfJoining;
 
-    @NotBlank(message = "Police Verification is mandatory")
-    private String policeVerification;
+	@NotBlank(message = "Department is mandatory")
+	private String department;
 
-    @NotBlank(message = "Medical Fitness Certificate is mandatory")
-    private String medicalFitnessCertificate;
+	@NotNull(message = "Address is mandatory")
+	private Address address;
 
-    private String profilePicture;
-    
-    private String userName;
-    private String password;
-    
-     private String role;
-    
-    private Map<String, List<String>> permissions;  
+	@NotNull(message = "Bank Account Details are mandatory")
+	private BankAccountDetails bankAccountDetails;
 
+	@NotBlank(message = "Police Verification is mandatory")
+	private String policeVerification;
 
+	@NotBlank(message = "Medical Fitness Certificate is mandatory")
+	private String medicalFitnessCertificate;
 
-    private String emailId;
+	private String profilePicture;
 
-    private String traningOrGuardLicense;
+	private String emailId;
 
-    private String previousEmployeeHistory;
+	private String traningOrGuardLicense;
+
+	private String previousEmployeeHistory;
+
+	private String userName;
+	private String password;
 }
