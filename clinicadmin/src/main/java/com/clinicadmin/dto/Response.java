@@ -26,5 +26,4 @@ public class Response {
 	private String role;
     private Map<String, Map<String, List<String>>> permissions;
 	
-	
 }
