@@ -108,14 +108,14 @@ public class ClinicDTO {
 	private int nabhScore;
 	private String branch;
 
-	@NotBlank(message = "Walkthrough URL is required")
-	@Pattern(regexp = "^(http|https)://.*$", message = "Walkthrough must be a valid URL")
+//	@NotBlank(message = "Walkthrough URL is required")
+//	@Pattern(regexp = "^(http|https)://.*$", message = "Walkthrough must be a valid URL")
 	private String walkthrough;
     private List<Branch> branches;
 
  // ClinicCredentials.java
     private String role;  
-    private Map<String, Map<String, List<String>>> permissions;
+    private Map<String, List<String>> permissions;
 	private String instagramHandle;
 	private String twitterHandle;
 	private String facebookHandle;

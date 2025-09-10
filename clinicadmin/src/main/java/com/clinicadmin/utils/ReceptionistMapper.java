@@ -53,6 +53,8 @@ public class ReceptionistMapper {
         ReceptionistRequestDTO dto = new ReceptionistRequestDTO();
         dto.setId(entity.getId());
         dto.setClinicId(entity.getClinicId());
+        dto.setHospitalName(entity.getHospitalName());
+        dto.setBranchId(entity.getBranchId());
         dto.setRole(entity.getRole());
         dto.setAddress(entity.getAddress());
         dto.setEmergencyContact(entity.getEmergencyContact());
@@ -68,6 +70,9 @@ public class ReceptionistMapper {
         dto.setBankAccountDetails(entity.getBankAccountDetails());
         dto.setEmailId(entity.getEmailId());
         dto.setPermissions(entity.getPermissions());
+        dto.setGender(entity.getGender());
+        dto.setYearOfExperience(entity.getYearOfExperience());
+        dto.setVaccinationStatus(entity.getVaccinationStatus());
         
 
         // Decode files safely
@@ -75,6 +80,7 @@ public class ReceptionistMapper {
         dto.setComputerSkillsProof(safeReturnAsBase64(entity.getComputerSkillsProof()));
         dto.setProfilePicture(safeReturnAsBase64(entity.getProfilePicture()));
         dto.setPreviousEmploymentHistory(entity.getPreviousEmploymentHistory());
+        dto.setPermissions(entity.getPermissions());
 
         return dto;
     }
@@ -84,7 +90,10 @@ public class ReceptionistMapper {
         if (dto == null || entity == null) return;
 
         if (dto.getClinicId() != null) entity.setClinicId(dto.getClinicId());
+        if (dto.getHospitalName() != null) entity.setHospitalName(dto.getHospitalName());
+        if (dto.getBranchId() != null) entity.setBranchId(dto.getBranchId());
         if (dto.getRole() != null) entity.setRole(dto.getRole());
+        if (dto.getPermissions() != null) entity.setPermissions(dto.getPermissions());
         if (dto.getAddress() != null) entity.setAddress(dto.getAddress());
 //        if (dto.getEmergencyContact() != null) entity.setEmergencyContact(dto.getEmergencyContact());
 //        if (dto.getUserName() != null) entity.setUserName(dto.getUserName());
@@ -98,6 +107,9 @@ public class ReceptionistMapper {
         if (dto.getDepartment() != null) entity.setDepartment(dto.getDepartment());
         if (dto.getBankAccountDetails() != null) entity.setBankAccountDetails(dto.getBankAccountDetails());
         if (dto.getEmailId() != null) entity.setEmailId(dto.getEmailId());
+        if (dto.getGender() != null) entity.setGender(dto.getGender());
+        if (dto.getYearOfExperience() != null) entity.setYearOfExperience(dto.getYearOfExperience());
+        if (dto.getVaccinationStatus() != null) entity.setVaccinationStatus(dto.getVaccinationStatus());
 
         // Encode files if provided
         if (dto.getGraduationCertificate() != null)
@@ -113,7 +125,9 @@ public class ReceptionistMapper {
     private static void applyDtoToEntity(ReceptionistRequestDTO dto, ReceptionistEntity entity) {
         entity.setId(dto.getId());
         entity.setClinicId(dto.getClinicId());
-        entity.setRole(dto.getRole() != null ? dto.getRole() : "RECEPTIONIST");
+        entity.setHospitalName(dto.getHospitalName());
+        entity.setBranchId(dto.getBranchId());
+        entity.setRole(dto.getRole());
         entity.setAddress(dto.getAddress());
         entity.setEmergencyContact(dto.getEmergencyContact());
 //        entity.setUserName(dto.getUserName() != null ? dto.getUserName() : dto.getContactNumber());
@@ -131,5 +145,8 @@ public class ReceptionistMapper {
         entity.setComputerSkillsProof(encodeIfNotBase64(dto.getComputerSkillsProof()));
         entity.setPreviousEmploymentHistory(dto.getPreviousEmploymentHistory());
         entity.setPermissions(dto.getPermissions());
+        entity.setGender(dto.getGender());
+        entity.setYearOfExperience(dto.getYearOfExperience());
+        entity.setVaccinationStatus(dto.getVaccinationStatus());
     }
 }
