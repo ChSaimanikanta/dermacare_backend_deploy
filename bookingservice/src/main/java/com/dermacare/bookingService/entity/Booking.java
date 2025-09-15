@@ -36,6 +36,8 @@ public class Booking  {
 	private String symptomsDuration;
 	private String clinicId;
 	private String clinicName;
+	private String branchId;
+	private String branchname;
 	private String clinicDeviceId;
 	private String doctorId;
 	private String doctorName;
@@ -56,6 +58,7 @@ public class Booking  {
 	private Integer visitCount;
 	private List<byte[]> attachments;
 	private byte[] consentFormPdf;
+	private List<byte[]> prescriptionPdf;
 	private double totalFee;
 	private String consultationExpiration;
 }

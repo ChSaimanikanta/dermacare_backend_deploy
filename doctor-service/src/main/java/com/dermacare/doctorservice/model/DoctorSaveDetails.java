@@ -31,7 +31,8 @@ public class DoctorSaveDetails {
 
 
     private LocalDateTime visitDateTime;
-    private String visitType; // "FIRST_VISIT" or "REVISIT"
+    private String visitType; 
+//    private int visitNumber;
 
     private SymptomDetails symptoms;
     private TestDetails tests;

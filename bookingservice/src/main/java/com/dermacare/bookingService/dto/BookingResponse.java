@@ -34,6 +34,8 @@ public class BookingResponse {
 	private String clinicId;
 	private String clinicDeviceId;
 	private String clinicName;
+	private String branchId;
+	private String branchname;
 	private String doctorId;
 	private String doctorName;
 	private String doctorMobileDeviceId;
@@ -54,6 +56,7 @@ public class BookingResponse {
 	private double totalFee;
 	private List<String> attachments;
 	private String consentFormPdf;
+	private List<String> prescriptionPdf;
 	private String paymentType;
 
 }

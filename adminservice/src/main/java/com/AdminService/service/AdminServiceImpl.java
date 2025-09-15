@@ -220,7 +220,27 @@ public class AdminServiceImpl implements AdminService {
 	            response.setStatus(409);
 	            return response;
 	        }
+	        
+	        Clinic existingclnc = clinicRep.findByLicenseNumber(clinic.getLicenseNumber());
 
+	        if (existingclnc != null) {
+	            response.setMessage("licenseNumber already exists");
+	            response.setSuccess(false);
+	            response.setStatus(409);
+	            return response;
+	        }
+	        
+	        
+	        Clinic existingcnc = clinicRep.findByEmailAddress(clinic.getEmailAddress());
+
+	        if (existingcnc != null) {
+	            response.setMessage("emailAddress already exists");
+	            response.setSuccess(false);
+	            response.setStatus(409);
+	            return response;
+	        }
+	        
+	        
 	        Clinic savedClinic = new Clinic();
 
 	        savedClinic.setName(clinic.getName());

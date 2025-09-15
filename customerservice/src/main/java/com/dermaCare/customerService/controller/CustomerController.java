@@ -34,7 +34,7 @@ import org.springframework.http.HttpStatus;
 
 @RestController
 @RequestMapping("/customer")
-// @CrossOrigin(origins = {"http://localhost:3000", "http://localhost:3001"})
+//@CrossOrigin(origins = {"http://localhost:3000", "http://localhost:3001"})
 public class CustomerController {
 
 	@Autowired(required = true)
@@ -417,6 +417,19 @@ public ResponseEntity<Response> getRatingAverageRating(@PathVariable String hosp
 				 return null;
 			 }
    }
+   
+    
+   
+   @GetMapping("/getBranchesInfoBySubServiceId/{clinicId}/{subServiceId}")
+   public ResponseEntity<Object> getBranchesInfoBySubServiceId(@PathVariable String clinicId,@PathVariable String subServiceId)throws JsonProcessingException{
+	   Response response = customerService.getBranchesInfoBySubServiceId(clinicId, subServiceId);
+		if(response != null) {
+			 return ResponseEntity.status(response.getStatus()).body(response);
+			 }else{
+				 return null;
+			 }
+   }
+   
    
    @GetMapping("/getAllCategories")
   	public ResponseEntity<?> getAllCategory() {
