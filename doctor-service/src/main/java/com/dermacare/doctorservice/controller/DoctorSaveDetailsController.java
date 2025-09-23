@@ -10,7 +10,7 @@ import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/doctors")
-// @CrossOrigin(origins = {"http://localhost:3000", "http://localhost:3001"})
+//@CrossOrigin(origins = {"http://localhost:3000", "http://localhost:3001"})
 public class DoctorSaveDetailsController {
 
     @Autowired
@@ -77,5 +77,16 @@ public class DoctorSaveDetailsController {
                 service.getInProgressDetails(patientId, bookingId)
         );
     }
-
+    
+    
+    @GetMapping("/getDoctorSaveDetailsByBookingId/{bookingId}")
+    public ResponseEntity<Response> getDoctorSaveDetailsByBookingId(@PathVariable String bookingId) {
+        Response response = service.getDoctorDetailsByBookingId(bookingId);
+        return ResponseEntity.status(response.getStatus()).body(response);
+    }      
+    @GetMapping("/getDoctorSaveDetailsByCustomerId/{customerId}")
+    public ResponseEntity<Response> getDoctorSaveDetailsByCustomerId(@PathVariable String customerId) {
+        Response response = service.getDoctorDetailsByCustomerId(customerId);
+        return ResponseEntity.status(response.getStatus()).body(response);
+    }
 }

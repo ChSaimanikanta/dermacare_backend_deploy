@@ -9,7 +9,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.bind.annotation.CrossOrigin;
 @RestController
 @RequestMapping("/clinic-admin")
-// @CrossOrigin(origins = {"http://localhost:3000", "http://localhost:3001"})
+//@CrossOrigin(origins = {"http://localhost:3000", "http://localhost:3001"})
 public class PrivacyPolicyController {
 
     @Autowired
@@ -26,6 +26,12 @@ public class PrivacyPolicyController {
     public ResponseEntity<Response> getAllPolicies() {
         return ResponseEntity.ok(service.getAllPolicies());
     }
+    
+    @GetMapping("/getPoliciesByClinicId/{clinicId}")
+    public ResponseEntity<Response> getPoliciesByClinicId(@PathVariable String clinicId) {
+        return ResponseEntity.ok(service.getPoliciesByClinicId(clinicId));
+    }
+
 
 
     @GetMapping("/getPolicyById/{id}")

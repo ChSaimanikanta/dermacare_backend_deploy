@@ -9,7 +9,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.bind.annotation.CrossOrigin;
 @RestController
 @RequestMapping("/clinic-admin")
-// @CrossOrigin(origins = {"http://localhost:3000", "http://localhost:3001"})
+//@CrossOrigin(origins = {"http://localhost:3000", "http://localhost:3001"})
 public class ReferredDoctorController {
 
     @Autowired
@@ -54,4 +54,11 @@ public class ReferredDoctorController {
         Response response = service.getAllReferralDoctor();
         return ResponseEntity.status(response.getStatus()).body(response);
     }
+    
+    @GetMapping("/getReferralDoctorsByClinicId/{clinicId}")
+    public ResponseEntity<Response> getReferralDoctorsByClinicId(@PathVariable String clinicId) {
+        Response response = service.getReferralDoctorsByClinicId(clinicId);
+        return ResponseEntity.status(response.getStatus()).body(response);
+    }
+
 }

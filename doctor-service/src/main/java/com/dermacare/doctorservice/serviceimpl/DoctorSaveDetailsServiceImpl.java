@@ -39,7 +39,10 @@ import com.dermacare.doctorservice.model.TreatmentDetails;
 import com.dermacare.doctorservice.model.TreatmentResponse;
 import com.dermacare.doctorservice.repository.DoctorSaveDetailsRepository;
 import com.dermacare.doctorservice.service.DoctorSaveDetailsService;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 
 import feign.FeignException;
 
@@ -63,7 +66,6 @@ public class DoctorSaveDetailsServiceImpl implements DoctorSaveDetailsService {
         try {
             // Step 1: Fetch doctor details from Clinic Admin service
             Response doctorResponse = clinicAdminClient.getDoctorById(dto.getDoctorId()).getBody();
-
             if (doctorResponse == null || !doctorResponse.isSuccess() || doctorResponse.getData() == null) {
                 return buildResponse(false, null,
                         "Doctor not found with ID: " + dto.getDoctorId(),
@@ -75,25 +77,20 @@ public class DoctorSaveDetailsServiceImpl implements DoctorSaveDetailsService {
             dto.setDoctorName((String) doctorData.get("doctorName"));
 
             // Ensure clinic details are not null
-            String clinicId = dto.getClinicId() != null ? dto.getClinicId() : "";
-            String clinicName = dto.getClinicName() != null ? dto.getClinicName() : "";
-            dto.setClinicId(clinicId);
-            dto.setClinicName(clinicName);
+            dto.setClinicId(dto.getClinicId() != null ? dto.getClinicId() : "");
+            dto.setClinicName(dto.getClinicName() != null ? dto.getClinicName() : "");
 
-           
-            List<DoctorSaveDetails> previousVisits = repository.findByPatientId(dto.getPatientId());
-
-            // visit number = total previous visits + 1 (continuous count)
-            int visitNumber = previousVisits.size() + 1;
+            // Step 2: Calculate visit count based on doctorId + patientId
+            List<DoctorSaveDetails> previousVisits = repository.findByDoctorIdAndPatientId(dto.getDoctorId(), dto.getPatientId());
+            int visitCount = previousVisits != null ? previousVisits.size() + 1 : 1;
 
             dto.setVisitDateTime(LocalDateTime.now());
+            dto.setVisitType(VisitTypeUtil.getVisitTypeFromCount(visitCount));
+            dto.setVisitCount(visitCount); // ← set in DTO
 
-            // Set visit type using VisitTypeUtil
-            String visitType = VisitTypeUtil.getVisitTypeFromCount(visitNumber);
-            dto.setVisitType(visitType);
-
-            // Step 3: Save doctor details
+            // Step 3: Convert DTO to entity and set visitCount
             DoctorSaveDetails entity = convertToEntity(dto);
+            entity.setVisitCount(visitCount); // ← crucial for DB
             DoctorSaveDetails saved = repository.save(entity);
 
             // Step 4: Update booking status to "In-Progress" via Feign
@@ -101,11 +98,11 @@ public class DoctorSaveDetailsServiceImpl implements DoctorSaveDetailsService {
                     .getBookedService(saved.getBookingId())
                     .getBody()
                     .getData();
-
             bookres.setBookingId(dto.getBookingId());
             bookres.setStatus("In-Progress");
 
-                if (!"FIRST_VISIT".equalsIgnoreCase(saved.getVisitType()) && bookres.getFreeFollowUpsLeft() != null) {
+            // Handle free follow-ups
+            if (!"FIRST_VISIT".equalsIgnoreCase(saved.getVisitType()) && bookres.getFreeFollowUpsLeft() != null) {
                 Integer value = bookres.getFreeFollowUpsLeft();
                 if (value != null && value > 0) {
                     value = value - 1;
@@ -121,7 +118,7 @@ public class DoctorSaveDetailsServiceImpl implements DoctorSaveDetailsService {
             DoctorSaveDetailsDTO savedDto = convertToDto(saved);
 
             return buildResponse(true,
-                    Map.of("savedDetails", savedDto, "visitNumber", visitNumber),
+                    Map.of("savedDetails", savedDto, "visitNumber", visitCount),
                     "Doctor details saved successfully",
                     HttpStatus.CREATED.value());
 
@@ -135,6 +132,7 @@ public class DoctorSaveDetailsServiceImpl implements DoctorSaveDetailsService {
                     HttpStatus.INTERNAL_SERVER_ERROR.value());
         }
     }
+
 
     @Override
     public Response getDoctorDetailsById(String id) {
@@ -235,6 +233,7 @@ public class DoctorSaveDetailsServiceImpl implements DoctorSaveDetailsService {
                 .doctorName(dto.getDoctorName())
                 .clinicId(dto.getClinicId())
                 .clinicName(dto.getClinicName())
+                .customerId(dto.getCustomerId())
                 .bookingId(dto.getBookingId())
                 .symptoms(dto.getSymptoms() != null ?
                         SymptomDetails.builder()
@@ -311,7 +310,7 @@ public class DoctorSaveDetailsServiceImpl implements DoctorSaveDetailsService {
                                                         .name(med.getName())
                                                         .dose(med.getDose())
                                                         .duration(med.getDuration())
-                                                        .food(med.getFood())
+                                                        .durationUnit(med.getDurationUnit())                                                        .food(med.getFood())
                                                         .medicineType(med.getMedicineType()) 
                                                         .note(med.getNote())
                                                         .remindWhen(med.getRemindWhen())
@@ -326,6 +325,7 @@ public class DoctorSaveDetailsServiceImpl implements DoctorSaveDetailsService {
 
                 .visitType(dto.getVisitType())
                 .visitDateTime(dto.getVisitDateTime())
+                .visitCount(dto.getVisitCount())
                 .prescriptionPdf(dto.getPrescriptionPdf())
                                 .build();
     }
@@ -355,6 +355,7 @@ public class DoctorSaveDetailsServiceImpl implements DoctorSaveDetailsService {
                 .doctorName(entity.getDoctorName())
                 .clinicId(entity.getClinicId())
                 .clinicName(entity.getClinicName())
+                .customerId(entity.getCustomerId())
                 .bookingId(entity.getBookingId())
                 .symptoms(entity.getSymptoms() != null ?
                         SymptomDetailsDTO.builder()
@@ -429,6 +430,7 @@ public class DoctorSaveDetailsServiceImpl implements DoctorSaveDetailsService {
                                                         .name(med.getName())
                                                         .dose(med.getDose())
                                                         .duration(med.getDuration())
+                                                        .durationUnit(med.getDurationUnit())
                                                         .food(med.getFood())
                                                         .medicineType(med.getMedicineType())
                                                         .note(med.getNote())
@@ -443,6 +445,7 @@ public class DoctorSaveDetailsServiceImpl implements DoctorSaveDetailsService {
 
                 .visitType(entity.getVisitType())
                 .visitDateTime(entity.getVisitDateTime())
+                .visitCount(entity.getVisitCount())
                 .build();
     }
 
@@ -567,6 +570,39 @@ public class DoctorSaveDetailsServiceImpl implements DoctorSaveDetailsService {
             return buildResponse(false, null,
                     "Error fetching in-progress details: " + e.getMessage(),
                     HttpStatus.INTERNAL_SERVER_ERROR.value());
+        }
+    }
+    
+    
+    @Override
+    public Response getDoctorDetailsByBookingId(String bookingId) {
+    	try {
+        DoctorSaveDetails optional = repository.findByBookingId(bookingId);
+        if(optional != null) {
+        	ObjectMapper mapper = new ObjectMapper();
+	        mapper.registerModule(new JavaTimeModule());
+	        mapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+        return new Response(true,mapper.convertValue(optional,DoctorSaveDetailsDTO.class ), "prescription details found", HttpStatus.OK.value());
+        }else {
+        return new Response(false, null, "prescription details Not found", HttpStatus.NOT_FOUND.value());
+        }}catch(Exception e) {
+        	 return new Response(false, null,e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR.value());
+        }
+    }
+    
+    @Override
+    public Response getDoctorDetailsByCustomerId(String customerId) {
+    	try {
+       List<DoctorSaveDetails> optional = repository.findByCustomerId(customerId);
+        if(optional != null && !optional.isEmpty()) {
+        	ObjectMapper mapper = new ObjectMapper();
+	        mapper.registerModule(new JavaTimeModule());
+	        mapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+        return new Response(true,mapper.convertValue(optional,new TypeReference<List<DoctorSaveDetailsDTO>>(){}), "prescription details found", HttpStatus.OK.value());
+        }else {
+        return new Response(false, null, "prescription details Not found", HttpStatus.NOT_FOUND.value());
+        }}catch(Exception e) {
+        	 return new Response(false, null,e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR.value());
         }
     }
 }

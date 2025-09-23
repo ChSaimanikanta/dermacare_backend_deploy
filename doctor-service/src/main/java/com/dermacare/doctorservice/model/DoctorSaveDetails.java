@@ -28,11 +28,13 @@ public class DoctorSaveDetails {
     private String clinicId;
     private String clinicName;
     private String bookingId;
+    private String customerId;
 
 
     private LocalDateTime visitDateTime;
     private String visitType; 
-//    private int visitNumber;
+    private int visitCount; 
+
 
     private SymptomDetails symptoms;
     private TestDetails tests;

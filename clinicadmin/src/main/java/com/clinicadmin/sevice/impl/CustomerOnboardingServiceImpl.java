@@ -8,7 +8,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 
-import com.clinicadmin.dto.ChangeDoctorPasswordDTO;
 import com.clinicadmin.dto.CustomerLoginDTO;
 import com.clinicadmin.dto.CustomerOnbordingDTO;
 import com.clinicadmin.dto.Response;
@@ -39,12 +38,12 @@ public class CustomerOnboardingServiceImpl implements CustomerOnboardingService 
 
 		try {
 			// Generate unique IDs
-			long customerSeq = sequenceGeneratorService.getNextSequence(dto.getHospitalId() + "_customer");
+			long customerSeq = sequenceGeneratorService.getNextSequence(dto.getBranchId() + "_customer");
 			long patientSeq = sequenceGeneratorService
-					.getNextSequence(dto.getHospitalId() + "_" + dto.getBranchId() + "_patient");
+					.getNextSequence( dto.getBranchId() + "_patient");
 
-			String customerId = dto.getHospitalId() + "_CR_" + String.format("%05d", customerSeq);
-			String patientId = dto.getHospitalId() + dto.getBranchId() + "_PT_" + String.format("%05d", patientSeq);
+			String customerId =  dto.getBranchId()+"_CR_" + String.format("%05d", customerSeq);
+			String patientId =  dto.getBranchId() + "_PT_" + String.format("%05d", patientSeq);
 			
 			// Generate Referral Code
 			String prefix = dto.getFullName()
@@ -61,7 +60,8 @@ public class CustomerOnboardingServiceImpl implements CustomerOnboardingService 
 			entity.setPatientId(patientId);
 			entity.setReferralCode(referralCode);
 
-			onboardingRepository.save(entity);
+		    onboardingRepository.save(entity);
+			
 
 			// Save credentials
 			CustomerCredentials credentials = new CustomerCredentials();
@@ -114,7 +114,7 @@ public class CustomerOnboardingServiceImpl implements CustomerOnboardingService 
 	public Response getCustomerById(String id) {
 		Response response = new Response();
 		try {
-			Optional<CustomerOnbording> optional = onboardingRepository.findById(id);
+			Optional<CustomerOnbording> optional = onboardingRepository.findByCustomerId(id);
 			if (optional.isPresent()) {
 				response.setSuccess(true);
 				response.setMessage("Customer found successfully");
@@ -135,11 +135,11 @@ public class CustomerOnboardingServiceImpl implements CustomerOnboardingService 
 
 	// ----------------- UPDATE -----------------
 	@Override
-	public Response updateCustomer(String id, CustomerOnbordingDTO dto) {
+	public Response updateCustomer(String customerId, CustomerOnbordingDTO dto) {
 		Response response = new Response();
 
 		try {
-			Optional<CustomerOnbording> optional = onboardingRepository.findById(id);
+			Optional<CustomerOnbording> optional = onboardingRepository.findByCustomerId(customerId);
 			if (optional.isEmpty()) {
 				response.setSuccess(false);
 				response.setMessage("Customer not found");
@@ -209,7 +209,7 @@ public class CustomerOnboardingServiceImpl implements CustomerOnboardingService 
 		Response response = new Response();
 
 		try {
-			Optional<CustomerOnbording> optional = onboardingRepository.findById(id);
+			Optional<CustomerOnbording> optional = onboardingRepository.findByCustomerId(id);
 			if (optional.isEmpty()) {
 				response.setSuccess(false);
 				response.setMessage("Customer not found");
@@ -218,7 +218,7 @@ public class CustomerOnboardingServiceImpl implements CustomerOnboardingService 
 			}
 
 			CustomerOnbording entity = optional.get();
-			onboardingRepository.deleteById(id);
+			onboardingRepository.deleteByCustomerId(id);
 
 			// Delete credentials also
 			credentialsRepository.deleteByUserName(entity.getCustomerId());
@@ -236,6 +236,73 @@ public class CustomerOnboardingServiceImpl implements CustomerOnboardingService 
 		return response;
 	}
 
+	@Override
+	public Response getCustomersByHospitalId(String hospitalId) {
+	    Response response = new Response();
+	    try {
+	        List<CustomerOnbordingDTO> customers = onboardingRepository.findByHospitalId(hospitalId)
+	                .stream()
+	                .map(this::convertToDTO)
+	                .collect(Collectors.toList());
+
+	        response.setSuccess(true);
+	        response.setMessage(customers.isEmpty() ? "No customers found for hospitalId: " + hospitalId : "Customers retrieved successfully");
+	        response.setData(customers);
+	        response.setStatus(200);
+	    } catch (Exception e) {
+	        response.setSuccess(false);
+	        response.setMessage("Error fetching customers: " + e.getMessage());
+	        response.setStatus(500);
+	    }
+	    return response;
+	}
+
+	@Override
+	public Response getCustomersByBranchId(String branchId) {
+	    Response response = new Response();
+	    try {
+	        List<CustomerOnbordingDTO> customers = onboardingRepository.findByBranchId(branchId)
+	                .stream()
+	                .map(this::convertToDTO)
+	                .collect(Collectors.toList());
+
+	        response.setSuccess(true);
+	        response.setMessage(customers.isEmpty() ? "No customers found for branchId: " + branchId : "Customers retrieved successfully");
+	        response.setData(customers);
+	        response.setStatus(200);
+	    } catch (Exception e) {
+	        response.setSuccess(false);
+	        response.setMessage("Error fetching customers: " + e.getMessage());
+	        response.setStatus(500);
+	    }
+	    return response;
+	}
+
+	@Override
+	public Response getCustomersByHospitalIdAndBranchId(String hospitalId, String branchId) {
+	    Response response = new Response();
+	    try {
+	        List<CustomerOnbordingDTO> customers = onboardingRepository.findByHospitalIdAndBranchId(hospitalId, branchId)
+	                .stream()
+	                .map(this::convertToDTO)
+	                .collect(Collectors.toList());
+
+	        response.setSuccess(true);
+	        response.setMessage(customers.isEmpty() ? 
+	            "No customers found for hospitalId: " + hospitalId + " and branchId: " + branchId 
+	            : "Customers retrieved successfully");
+	        response.setData(customers);
+	        response.setStatus(200);
+	    } catch (Exception e) {
+	        response.setSuccess(false);
+	        response.setMessage("Error fetching customers: " + e.getMessage());
+	        response.setStatus(500);
+	    }
+	    return response;
+	}
+
+	
+	
 	// ----------------- LOGIN -----------------
 	@Override
 	public Response login(CustomerLoginDTO dto) {

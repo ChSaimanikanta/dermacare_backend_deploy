@@ -8,18 +8,18 @@ import org.springframework.web.bind.annotation.PathVariable;
 
 import com.clinicadmin.dto.Response;
 
-
-
-@FeignClient(name="customerservice")
+@FeignClient(name = "customerservice")
 public interface CustomerServiceFeignClient {
 
 //    @GetMapping("/api/customer/getRatingInfo/{hospitalId}/{doctorId}")
 //    public ResponseEntity<Response> getRatingInfo(@PathVariable String hospitalId, @PathVariable String doctorId);
-    
-    @DeleteMapping("/api/customer/deleteService/{id}")
-    public ResponseEntity<Response> deleteBookedService(@PathVariable String id);
-    
-    @GetMapping("/api/customer/getRatingInfo/{branchlId}/{doctorId}")
-    public ResponseEntity<Response> getRatingInfo(@PathVariable String branchlId, @PathVariable String doctorId);
-    
+
+	@DeleteMapping("/api/customer/deleteService/{id}")
+	public ResponseEntity<Response> deleteBookedService(@PathVariable String id);
+
+	@GetMapping("/api/customer/getRatingInfo/{branchlId}/{doctorId}")
+	public ResponseEntity<Response> getRatingInfo(@PathVariable String branchlId, @PathVariable String doctorId);
+	
+	@GetMapping("/api/customer/getRatingInfoByDoctorId/{doctorId}")
+	public ResponseEntity<Response> getRatingInfoByDoctorId(@PathVariable String doctorId);
 }

@@ -1,7 +1,5 @@
 package com.dermaCare.customerService.service;
 
-import org.springframework.http.HttpStatus;
-import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
@@ -9,16 +7,18 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Random;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+
 import com.dermaCare.customerService.dto.BookingRequset;
 import com.dermaCare.customerService.dto.BookingResponse;
 import com.dermaCare.customerService.dto.BranchDTO;
@@ -28,11 +28,15 @@ import com.dermaCare.customerService.dto.ClinicAndDoctorsResponse;
 import com.dermaCare.customerService.dto.ClinicDTO;
 import com.dermaCare.customerService.dto.ConsultationDTO;
 import com.dermaCare.customerService.dto.CustomerDTO;
+import com.dermaCare.customerService.dto.CustomerLoginDTO;
 import com.dermaCare.customerService.dto.CustomerRatingDomain;
+import com.dermaCare.customerService.dto.DoctorSaveDetailsDTO;
 import com.dermaCare.customerService.dto.DoctorsDTO;
 import com.dermaCare.customerService.dto.FavouriteDoctorsDTO;
 import com.dermaCare.customerService.dto.LoginDTO;
 import com.dermaCare.customerService.dto.NotificationToCustomer;
+import com.dermaCare.customerService.dto.ReportsAndDoctorSaveDetailsDto;
+import com.dermaCare.customerService.dto.ReportsDtoList;
 import com.dermaCare.customerService.dto.ServicesDto;
 import com.dermaCare.customerService.dto.SubServicesDetailsDto;
 import com.dermaCare.customerService.dto.SubServicesDto;
@@ -44,6 +48,7 @@ import com.dermaCare.customerService.feignClient.AdminFeign;
 import com.dermaCare.customerService.feignClient.BookingFeign;
 import com.dermaCare.customerService.feignClient.CategoryServicesFeign;
 import com.dermaCare.customerService.feignClient.ClinicAdminFeign;
+import com.dermaCare.customerService.feignClient.DoctorServiceFeign;
 import com.dermaCare.customerService.feignClient.NotificationFeign;
 import com.dermaCare.customerService.repository.ConsultationRep;
 import com.dermaCare.customerService.repository.CustomerFavouriteDoctors;
@@ -57,9 +62,10 @@ import com.dermaCare.customerService.util.ResponseStructure;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+
 import feign.FeignException;
-
-
 
 @Service
 public class CustomerServiceImpl implements CustomerService {
@@ -93,6 +99,9 @@ public class CustomerServiceImpl implements CustomerService {
     
     @Autowired
     private NotificationFeign notificationFeign;
+    
+    @Autowired
+    private DoctorServiceFeign doctorServiceFeign;
     
     
     private Map<String, String> generatedOtps = new HashMap<>();
@@ -656,13 +665,42 @@ public Response getAllSavedFavouriteDoctors(){
 	}}
 	
 
-public Response getDoctorsSlots(String hospitalId,String doctorId) {
+public Response getDoctorsSlots(String hid,String branchId,String doctorId) {
 	Response response = new Response();
     	try {
-    	ResponseEntity<Response> res = clinicAdminFeign.getDoctorSlot( hospitalId,doctorId);
+    	ResponseEntity<Response> res = clinicAdminFeign.getDoctorSlot(hid,branchId,doctorId);
 		return res.getBody();
 	}catch(FeignException e) {
 		response.setStatus(e.status());
+		response.setMessage(ExtractFeignMessage.clearMessage(e));
+		response.setSuccess(false);
+		return response;
+	}}
+
+public Response getReportsAndDoctorSaveDetails(String customerId) {
+	Response response = new Response();
+    	try {
+        Response  res = clinicAdminFeign.getReportsBycustomerId(customerId).getBody();
+       // System.out.println(res);
+       List<ReportsDtoList> repots = new ObjectMapper().convertValue(res.getData(),new TypeReference<List<ReportsDtoList>>(){});
+       Response  rs =  doctorServiceFeign.getDoctorSaveDetailsByCustomerId(customerId).getBody();
+       //System.out.println(rs);
+       ObjectMapper mapper = new ObjectMapper();
+       mapper.registerModule(new JavaTimeModule());
+       mapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+       List<DoctorSaveDetailsDTO> doctorSaveDetailsDTO = mapper.convertValue(rs.getData(),new TypeReference<List<DoctorSaveDetailsDTO>>(){});
+       ReportsAndDoctorSaveDetailsDto rd = new ReportsAndDoctorSaveDetailsDto();
+       if(repots != null && !repots.isEmpty() ) {
+       rd.setReportsDtoList(repots);}
+       if(doctorSaveDetailsDTO != null  && !doctorSaveDetailsDTO.isEmpty()) {
+       rd.setDoctorSaveDetailsDTO(doctorSaveDetailsDTO);}
+       response.setStatus(200);;
+		response.setMessage("Data fetched Successfully");
+		response.setSuccess(true);
+		response.setData(rd);
+		return response;
+	    }catch(FeignException e) {
+		response.setStatus(e.status());;
 		response.setMessage(ExtractFeignMessage.clearMessage(e));
 		response.setSuccess(false);
 		return response;
@@ -860,7 +898,7 @@ public Response getDoctorsSlots(String hospitalId,String doctorId) {
 	   public Response submitCustomerRating(CustomerRatingDomain ratingRequest) {
 			 Response response = new Response();
 			 ZonedDateTime istTime = ZonedDateTime.now(ZoneId.of("Asia/Kolkata"));
-			    DateTimeFormatter formatter = DateTimeFormatter.ofPattern("hh:mm a");
+			    DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd-MM-yyyy hh:mm:ss a");
 			    String formattedTime = istTime.format(formatter);
 		    	try {
 		    		CustomerRating customerRating =	customerRatingRepository.findByBranchIdAndDoctorIdAndAppointmentId(ratingRequest.getBranchId(), ratingRequest.getDoctorId() 
@@ -947,6 +985,38 @@ public Response getDoctorsSlots(String hospitalId,String doctorId) {
 				return response;
 			}
 		}
+	   
+	   
+	   @Override
+	   public Response getRatingForServiceBydoctorId( String doctorId) {
+			Response response = new Response();
+			try {
+			    List<CustomerRatingDomain> listDto = new ArrayList<>();
+				List<CustomerRating> ratings = customerRatingRepository.findByDoctorId(doctorId);
+				System.out.println(ratings); 
+				if (ratings.isEmpty()) {
+					response.setStatus(200);
+					response.setMessage("Rating Not Found");
+					response.setSuccess(true);
+					return response;}
+				for(CustomerRating rating : ratings){
+				CustomerRatingDomain c = new CustomerRatingDomain(rating.getDoctorRating(), rating.getBranchRating(),
+						rating.getFeedback(), rating.getHospitalId(),rating.getBranchId(), rating.getDoctorId(), rating.getCustomerMobileNumber(),rating.getPatientId(),
+						rating.getPatientName(),rating.getAppointmentId(), rating.getRated(),rating.getDateAndTimeAtRating());
+				 listDto.add(c);}
+				response.setStatus(200);
+				response.setData(listDto);
+				response.setMessage("Rating fetched successfully");
+				response.setSuccess(true);
+				return response;
+			} catch (Exception e) {
+				response.setStatus(500);
+				response.setMessage(e.getMessage());
+				response.setSuccess(false);
+				return response;
+			}
+		}
+	   
 	   
 	   	   
 	   
@@ -1174,9 +1244,9 @@ public Response getBranchesInfoBySubServiceId(String clinicId,String subServiceI
 		    	 hospitalAndSubServiceInfo.setCity(clinicDto.getCity());}
 		    //System.out.println(response.getData());
 		     List<BranchDTO> branchDto = new ObjectMapper().convertValue(response.getData(),new TypeReference<List<BranchDTO>>() {});	
-		     List<BranchDTO> branchDtoWithKms = branchDto.stream().map(n->{int d = (int)haversine(Double.valueOf(latitude),Double.valueOf(longtitude),Double.valueOf(n.getLatitude()),Double.valueOf(n.getLongitude()));
-		     n.setDistance(d); n.setKms(String.valueOf(d)+" km");return n;}).toList();
-		     List<BranchDTO> branchDtoWithKmsAsndng = branchDtoWithKms.stream().sorted(Comparator.comparingInt(BranchDTO::getDistance)).toList();
+		     List<BranchDTO> branchDtoWithKms = branchDto.stream().map(n->{double d = haversine(Double.valueOf(latitude),Double.valueOf(longtitude),Double.valueOf(n.getLatitude()),Double.valueOf(n.getLongitude()));
+		     n.setDistance(d); n.setKms(String.format("%.1f", d)+" km");return n;}).toList();
+		     List<BranchDTO> branchDtoWithKmsAsndng = branchDtoWithKms.stream().sorted(Comparator.comparingDouble(BranchDTO::getDistance)).toList();
 			 hospitalAndSubServiceInfo.setBranches(branchDtoWithKmsAsndng);
 			 }else {
 				 responseObj.setMessage("Hospital Not Found ");
@@ -1193,7 +1263,7 @@ public Response getBranchesInfoBySubServiceId(String clinicId,String subServiceI
 				 responseObj.setMessage("No SubService Found ");
 				 responseObj.setStatus(200);}
 	    }catch(FeignException e) {
-			 responseObj.setMessage(ExtractFeignMessage.clearMessage(e));
+			 responseObj.setMessage(e.getMessage());
 			 responseObj.setStatus(e.status());
 			 responseObj.setSuccess(false);
 		}
@@ -1240,6 +1310,63 @@ try {
 	return bookingFeign.inProgressAppointments(mnumber);		
 }catch(FeignException e) {		
 	 ResBody<List<NotificationToCustomer>>  res = new  ResBody<List<NotificationToCustomer>>(ExtractFeignMessage.clearMessage(e),e.status(),null);		
+	return ResponseEntity.status(e.status()).body(res);		
+}}
+
+
+public ResponseEntity<?> customerLogin(CustomerLoginDTO dto){
+try {		
+	return clinicAdminFeign.login(dto);		
+}catch(FeignException e) {	
+	Response res = new Response();
+	res.setMessage(ExtractFeignMessage.clearMessage(e));
+	res.setStatus(e.status());
+	res.setSuccess(false);
+	return ResponseEntity.status(e.status()).body(res);		
+}}
+
+
+
+@Override
+public Response getDoctorsByHospitalBranchAndSubService( String hospitalId,
+		String branchId,  String subServiceId)throws JsonProcessingException {
+	Response response = new Response();
+	try {
+		Response hospitalResponse = adminFeign.getClinicById(hospitalId);
+		if(hospitalResponse.getData()!= null ) {
+		ResponseEntity<Response> doctorsResponse = clinicAdminFeign.getDoctorsByHospitalBranchAndSubService(hospitalId, branchId, subServiceId);
+		 Object obj = doctorsResponse.getBody().getData();
+		List<DoctorsDTO> doctors =  new ObjectMapper().convertValue(obj, new TypeReference<List<DoctorsDTO>>() {});
+		if(doctors!= null && !doctors.isEmpty()) {
+			ClinicDTO hospital = new ObjectMapper().convertValue(hospitalResponse.getData(), ClinicDTO.class);
+			ClinicAndDoctorsResponse combinedData = new ClinicAndDoctorsResponse(hospital, doctors);
+			response.setSuccess(true);
+			response.setData(combinedData);
+			response.setMessage("Hospital and doctors fetched successfully");
+			response.setStatus(200);
+		}else {		
+			response.setData( doctorsResponse.getBody());;
+			response.setStatus( doctorsResponse.getBody().getStatus());
+		}}else{        	
+			response.setData(hospitalResponse);;
+			response.setStatus(hospitalResponse.getStatus());
+		}}catch (FeignException e) {
+		response.setSuccess(false);
+		response.setMessage(ExtractFeignMessage.clearMessage(e));
+		response.setStatus(500);
+	}
+	return response;
+}
+
+
+public ResponseEntity<Response> getRecommendedClinicsAndOnDoctors(String keyPoints){
+try {		
+	return clinicAdminFeign.getRecommendedClinicsAndOnDoctors(keyPoints);		
+}catch(FeignException e) {	
+	Response res = new Response();
+	res.setMessage(ExtractFeignMessage.clearMessage(e));
+	res.setStatus(e.status());
+	res.setSuccess(false);
 	return ResponseEntity.status(e.status()).body(res);		
 }}
 

@@ -24,25 +24,24 @@ public interface DoctorService {
 
 	public Response changePassword(ChangeDoctorPasswordDTO updateDTO);
 
-	public Response getDoctorsByClinicId(String clinicId);
+//	public Response getDoctorsByClinicId(String clinicId);
 
-	public Response saveDoctorSlot(String hospitalId, String doctorId, DoctorSlotDTO dto);
-
+//	public Response saveDoctorSlot(String hospitalId, String branchId, String doctorId, DoctorSlotDTO dto);
 //public Response getDoctorSlots(String doctorId);
 	public Response availabilityStatus(String doctorId, DoctorAvailabilityStatusDTO status);
 
-	public Response deleteDoctorSlot(String doctorId, String date, String slotToDelete);
+//	public Response deleteDoctorSlot(String doctorId, String date, String slotToDelete, String branchId);
 
 //Response updateDoctorSlot(String doctorId, String date, String oldSlotTime, String newSlotTime);
-	public Response updateDoctorSlot(String doctorId, String date, String oldSlot, String newSlot);
+	public Response updateDoctorSlot( String doctorId, String date, String oldSlot, String newSlot) ;
 
-	public Response deleteDoctorSlotbyDate(String doctorId, String date);
+	public Response deleteDoctorSlot( String doctorId, String date, String slotToDelete) ;
 
 	public Response deleteDoctorById(String doctorId);
 
 	public Response getDoctorsBySubserviceId(String hospitalId, String subServiceId);
 
-	public Response getDoctorSlots(String hospitalId, String doctorId);
+//	public Response getDoctorSlots(String hospitalId, String branchId, String doctorId) ;
 
 	public Response getDoctorsByClinicIdAndDoctorId(String clinicId, String doctorId);
 
@@ -66,7 +65,30 @@ public interface DoctorService {
 
 	public Response getAllDoctorsWithRespectiveClinic();
 
+	public Response loginUsingRoles(DoctorLoginDTO dto);
+
+	Response getDoctorsByHospitalIdAndBranchIdSubserviceId(String hospitalId, String branchId, String subServiceId);
+
+	Response saveDoctorSlot(String hospitalId, String doctorId, DoctorSlotDTO dto);
+
+	Response getDoctorSlots(String hospitalId, String doctorId);
+
+	Response getDoctorsByClinicIdAndBranchId(String hospitalId, String branchId);
+
+	Response getDoctorsByClinicId(String hospitalId);
+
+	Response deleteDoctorSlotbyDate(String doctorId, String date);
+
 	
 
-	public Response loginUsingRoles(DoctorLoginDTO dto);
+//	---------------------------------------------Slots using branchId----------------------------------------------
+	Response saveDoctorSlot(String hospitalId, String branchId, String doctorId, DoctorSlotDTO dto);
+
+	Response getDoctorSlots(String hospitalId, String branchId, String doctorId);
+
+	Response getRecommendedClinicsAndOneDoctors(List<String> keyPointsFromUser);
+
+	Response getDoctorsByHospitalIdAndBranchId(String hospitalId, String branchId);
+
 }
+
