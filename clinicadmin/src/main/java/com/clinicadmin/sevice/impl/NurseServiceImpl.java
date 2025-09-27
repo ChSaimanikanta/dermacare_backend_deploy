@@ -4,20 +4,26 @@ import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
 import java.util.Base64;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
+import java.util.function.Consumer;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import com.clinicadmin.dto.Branch;
 import com.clinicadmin.dto.NurseDTO;
 import com.clinicadmin.dto.Response;
 import com.clinicadmin.entity.DoctorLoginCredentials;
 import com.clinicadmin.entity.Nurse;
+import com.clinicadmin.feignclient.AdminServiceClient;
 import com.clinicadmin.repository.DoctorLoginCredentialsRepository;
 import com.clinicadmin.repository.NurseRepository;
 import com.clinicadmin.service.NurseService;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 @Service
 public class NurseServiceImpl implements NurseService {
@@ -29,7 +35,13 @@ public class NurseServiceImpl implements NurseService {
 
 	@Autowired
 	PasswordEncoder passwordEncoder;
-
+	
+	@Autowired
+	AdminServiceClient adminServiceClient;
+	
+	@Autowired
+	ObjectMapper objectMapper;
+		
 	@Override
 	public Response nureseOnboarding(NurseDTO dto) {
 		Response response = new Response();
@@ -41,7 +53,11 @@ public class NurseServiceImpl implements NurseService {
 			response.setStatus(HttpStatus.BAD_REQUEST.value());
 			return response;
 		}
+		ResponseEntity <Response> res=adminServiceClient.getBranchById(dto.getBranchId());
+		Branch br =objectMapper.convertValue(res.getBody().getData(), Branch.class);
 		Nurse nurse = mapNurseDtoTONurseEntity(dto);
+		nurse.setBranchName(br.getBranchName());
+		
 		String nurseId = generateNurseId();
 		nurse.setNurseId(nurseId);
 		String username = dto.getNurseContactNumber();
@@ -56,6 +72,7 @@ public class NurseServiceImpl implements NurseService {
 				.hospitalId(savedNurse.getHospitalId())
 				.hospitalName(savedNurse.getHospitalName())
 				.branchId(savedNurse.getBranchId())
+				.branchName(savedNurse.getBranchName())
 				.username(username)
 				.password(encodedPassword)
 				.role(dto.getRole())
@@ -134,125 +151,110 @@ public class NurseServiceImpl implements NurseService {
 
 	@Override
 	public Response updateNurse(String hospitalId, String nurseId, NurseDTO dto) {
-		Response response = new Response();
+	    Response response = new Response();
 
-		// 🔹 Validate hospitalId & nurseId
-		if (hospitalId == null || hospitalId.isBlank() || nurseId == null || nurseId.isBlank()) {
-			response.setSuccess(false);
-			response.setData(null);
-			response.setMessage("Hospital ID and Nurse ID must not be empty");
-			response.setStatus(HttpStatus.BAD_REQUEST.value());
-			return response;
-		}
+	    // 🔹 Validate hospitalId & nurseId
+	    if (hospitalId == null || hospitalId.isBlank() || nurseId == null || nurseId.isBlank()) {
+	        response.setSuccess(false);
+	        response.setData(null);
+	        response.setMessage("Hospital ID and Nurse ID must not be empty");
+	        response.setStatus(HttpStatus.BAD_REQUEST.value());
+	        return response;
+	    }
 
-		// 🔹 Validate DTO mandatory fields (only if provided)
-		if (dto.getFullName() != null && dto.getFullName().isBlank()) {
-			response.setSuccess(false);
-			response.setData(null);
-			response.setMessage("Full name must not be blank");
-			response.setStatus(HttpStatus.BAD_REQUEST.value());
-			return response;
-		}
-		if (dto.getNurseContactNumber() != null && !dto.getNurseContactNumber().matches("\\d{10}")) {
-			response.setSuccess(false);
-			response.setData(null);
-			response.setMessage("Valid 10-digit contact number is required");
-			response.setStatus(HttpStatus.BAD_REQUEST.value());
-			return response;
-		}
-		if (dto.getEmailId() != null && !dto.getEmailId().matches("^[A-Za-z0-9+_.-]+@(.+)$")) {
-			response.setSuccess(false);
-			response.setData(null);
-			response.setMessage("Invalid email format");
-			response.setStatus(HttpStatus.BAD_REQUEST.value());
-			return response;
-		}
+	    // 🔹 Validate DTO fields
+	    if (dto.getFullName() != null && dto.getFullName().isBlank()) {
+	        response.setSuccess(false);
+	        response.setData(null);
+	        response.setMessage("Full name must not be blank");
+	        response.setStatus(HttpStatus.BAD_REQUEST.value());
+	        return response;
+	    }
+	    if (dto.getNurseContactNumber() != null && !dto.getNurseContactNumber().matches("\\d{10}")) {
+	        response.setSuccess(false);
+	        response.setData(null);
+	        response.setMessage("Valid 10-digit contact number is required");
+	        response.setStatus(HttpStatus.BAD_REQUEST.value());
+	        return response;
+	    }
+	    if (dto.getEmailId() != null && !dto.getEmailId().matches("^[A-Za-z0-9+_.-]+@(.+)$")) {
+	        response.setSuccess(false);
+	        response.setData(null);
+	        response.setMessage("Invalid email format");
+	        response.setStatus(HttpStatus.BAD_REQUEST.value());
+	        return response;
+	    }
 
-		return nurseRepository.findByHospitalIdAndNurseId(hospitalId, nurseId).map(existingNurse -> {
-			// update fields from DTO only if not null
-			if (dto.getHospitalName() != null)
-				existingNurse.setHospitalName(dto.getHospitalName());
-			if (dto.getHospitalId() != null)
-				existingNurse.setHospitalId(dto.getHospitalId());
-			if (dto.getRole() != null)
-				existingNurse.setRole(dto.getRole());
-			if (dto.getFullName() != null)
-				existingNurse.setFullName(dto.getFullName());
+	    // 🔹 Fetch nurse and update fields
+	    return nurseRepository.findByHospitalIdAndNurseId(hospitalId, nurseId).map(existingNurse -> {
 
-			if (dto.getDateOfBirth() != null)
-				existingNurse.setDateOfBirth(dto.getDateOfBirth());
+	        // Update simple fields only if not null
+	        Optional.ofNullable(dto.getHospitalId()).ifPresent(existingNurse::setHospitalId);
+	        Optional.ofNullable(dto.getHospitalName()).ifPresent(existingNurse::setHospitalName);
+	        Optional.ofNullable(dto.getBranchId()).ifPresent(existingNurse::setBranchId);
+	        Optional.ofNullable(dto.getRole()).ifPresent(existingNurse::setRole);
+	        Optional.ofNullable(dto.getFullName()).ifPresent(existingNurse::setFullName);
+	        Optional.ofNullable(dto.getDateOfBirth()).ifPresent(existingNurse::setDateOfBirth);
+	        Optional.ofNullable(dto.getDepartment()).ifPresent(existingNurse::setDepartment);
+	        Optional.ofNullable(dto.getEmailId()).ifPresent(existingNurse::setEmailId);
+	        Optional.ofNullable(dto.getNurseContactNumber()).ifPresent(existingNurse::setNurseContactNumber);
+	        Optional.ofNullable(dto.getGovernmentId()).ifPresent(existingNurse::setGovernmentId);
+	        Optional.ofNullable(dto.getBankAccountDetails()).ifPresent(existingNurse::setBankAccountDetails);
+	        Optional.ofNullable(dto.getInsuranceOrESIdetails()).ifPresent(existingNurse::setInsuranceOrESIdetails);
+	        Optional.ofNullable(dto.getPreviousEmploymentHistory()).ifPresent(existingNurse::setPreviousEmploymentHistory);
+	        Optional.ofNullable(dto.getAddress()).ifPresent(existingNurse::setAddress);
+	        Optional.ofNullable(dto.getGender()).ifPresent(existingNurse::setGender);
+	        Optional.ofNullable(dto.getEmergencyContactNumber()).ifPresent(existingNurse::setEmergencyContactNumber);
+	        Optional.ofNullable(dto.getYearsOfExperience()).ifPresent(existingNurse::setYearsOfExperience);
+	        Optional.ofNullable(dto.getQualifications()).ifPresent(existingNurse::setQualifications);
+	        Optional.ofNullable(dto.getShiftTimingOrAvailability()).ifPresent(existingNurse::setShiftTimingOrAvailability);
+	        Optional.ofNullable(dto.getPermissions()).ifPresent(existingNurse::setPermissions);
 
-			if (dto.getDepartment() != null)
-				existingNurse.setDepartment(dto.getDepartment());
+	        // 🔹 Boolean field (always overwrite if DTO has a value)
+	        if (dto.getVaccinationStatus() != null) {
+	            existingNurse.setVaccinationStatus(dto.getVaccinationStatus());
+	        }
 
-			if (dto.getEmailId() != null)
-				existingNurse.setEmailId(dto.getEmailId());
+	        // 🔹 Base64 fields (validate & update only if not null/blank)
+	        updateBase64Field(dto.getNursingLicense(), existingNurse::setNursingLicense);
+	        updateBase64Field(dto.getNursingCouncilRegistration(), existingNurse::setNursingCouncilRegistration);
+	        updateBase64Field(dto.getNursingDegreeOrDiplomaCertificate(), existingNurse::setNursingDegreeOrDiplomaCertificate);
+	        updateBase64Field(dto.getMedicalFitnessCertificate(), existingNurse::setMedicalFitnessCertificate);
+	        updateBase64Field(dto.getExperienceCertificates(), existingNurse::setExperienceCertificates);
+	        updateBase64Field(dto.getProfilePicture(), existingNurse::setProfilePicture);
 
-			if (dto.getNurseContactNumber() != null)
-				existingNurse.setNurseContactNumber(dto.getNurseContactNumber());
+	        // Save nurse
+	        Nurse updated = nurseRepository.save(existingNurse);
+	        NurseDTO updatedDTO = mapNurseEntityToNurseDTO(updated);
 
-			if (dto.getGovernmentId() != null)
-				existingNurse.setGovernmentId(dto.getGovernmentId());
+	        Response successResponse = new Response();
+	        successResponse.setSuccess(true);
+	        successResponse.setData(updatedDTO);
+	        successResponse.setMessage("Nurse updated successfully");
+	        successResponse.setStatus(HttpStatus.OK.value());
+	        return successResponse;
 
-			if (dto.getBankAccountDetails() != null)
-				existingNurse.setBankAccountDetails(dto.getBankAccountDetails());
+	    }).orElseGet(() -> {
+	        Response notFoundResponse = new Response();
+	        notFoundResponse.setSuccess(false);
+	        notFoundResponse.setData(null);
+	        notFoundResponse.setMessage("Nurse not found for update");
+	        notFoundResponse.setStatus(HttpStatus.NOT_FOUND.value());
+	        return notFoundResponse;
+	    });
+	}
 
-			if (dto.getInsuranceOrESIdetails() != null)
-				existingNurse.setInsuranceOrESIdetails(dto.getInsuranceOrESIdetails());
-
-			// boolean -> only update if explicitly provided
-			existingNurse.setVaccinationStatus(dto.getVaccinationStatus());
-
-			if (dto.getPreviousEmploymentHistory() != null)
-				existingNurse.setPreviousEmploymentHistory(dto.getPreviousEmploymentHistory());
-
-			if (dto.getAddress() != null)
-				existingNurse.setAddress(dto.getAddress());
-			if (dto.getGender() != null)
-				existingNurse.setGender(dto.getGender());
-			if (dto.getEmergencyContactNumber() != null)
-				existingNurse.setEmergencyContactNumber(dto.getEmergencyContactNumber());
-			if (dto.getYearsOfExperience() != null)
-				existingNurse.setYearsOfExperience(dto.getYearsOfExperience());
-			if (dto.getQualifications() != null)
-				existingNurse.setQualifications(dto.getQualifications());
-			if (dto.getQualifications() != null)
-				existingNurse.setQualifications(dto.getQualifications());
-			if (dto.getShiftTimingOrAvailability() != null)
-				existingNurse.setShiftTimingOrAvailability(dto.getShiftTimingOrAvailability());
-			// ⚡ Profile Picture (Base64 encode/decode)
-			if (dto.getProfilePicture() != null && !dto.getProfilePicture().isBlank()) {
-				// Ensure string is valid Base64
-				try {
-					byte[] decodedBytes = Base64.getDecoder().decode(dto.getProfilePicture());
-					String encodedString = Base64.getEncoder().encodeToString(decodedBytes);
-					existingNurse.setProfilePicture(encodedString); // store as Base64
-				} catch (IllegalArgumentException e) {
-					response.setSuccess(false);
-					response.setData(null);
-					response.setMessage("Invalid Base64 format for profile picture");
-					response.setStatus(HttpStatus.BAD_REQUEST.value());
-					return response;
-				}
-			}
-			if (dto.getPermissions() != null)
-				existingNurse.setPermissions(dto.getPermissions());
-
-			Nurse updated = nurseRepository.save(existingNurse);
-			NurseDTO updatedDTO = mapNurseEntityToNurseDTO(updated);
-
-			response.setSuccess(true);
-			response.setData(updatedDTO);
-			response.setMessage("Nurse updated successfully");
-			response.setStatus(HttpStatus.OK.value());
-			return response;
-		}).orElseGet(() -> {
-			response.setSuccess(false);
-			response.setData(null);
-			response.setMessage("Nurse not found for update");
-			response.setStatus(HttpStatus.NOT_FOUND.value());
-			return response;
-		});
+	/**
+	 * Utility method to safely update Base64 fields with null + validation check
+	 */
+	private void updateBase64Field(String field, Consumer<String> setter) {
+	    if (field != null && !field.isBlank()) {
+	        try {
+	            setter.accept(encodeIfNotBase64(field));
+	        } catch (IllegalArgumentException e) {
+	            throw new IllegalArgumentException("Invalid Base64 format for field: " + field);
+	        }
+	    }
 	}
 
 	@Override

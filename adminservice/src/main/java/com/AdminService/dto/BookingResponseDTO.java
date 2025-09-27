@@ -1,4 +1,5 @@
-package com.clinicadmin.dto;
+package com.AdminService.dto;
+
 
 import java.util.List;
 
@@ -8,14 +9,13 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+@Data
 @AllArgsConstructor
 @NoArgsConstructor
-@Data
 @JsonIgnoreProperties(ignoreUnknown = true)
 @JsonInclude(JsonInclude.Include.NON_EMPTY)
-public class BookingResponse {
+public class BookingResponseDTO {
 	
-
 	private String bookingId;
 	private String bookingFor;
 	private String name;
@@ -52,5 +52,5 @@ public class BookingResponse {
 	private List<String> attachments;
 	private String paymentType;
 	private String address;
-		
+
 }
