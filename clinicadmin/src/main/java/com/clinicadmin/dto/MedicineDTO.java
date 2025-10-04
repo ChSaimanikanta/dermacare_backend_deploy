@@ -1,8 +1,8 @@
-package com.dermacare.doctorservice.dto;
+package com.clinicadmin.dto;
+
+
 
 import java.util.List;
-
-
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -34,3 +34,4 @@ public class MedicineDTO {
     private String stock;
 
 }
+
