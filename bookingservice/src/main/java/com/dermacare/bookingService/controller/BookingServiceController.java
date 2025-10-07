@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.dermacare.bookingService.dto.BookingInfoByInput;
 import com.dermacare.bookingService.dto.BookingRequset;
 import com.dermacare.bookingService.dto.BookingResponse;
 import com.dermacare.bookingService.service.BookingService_Service;
@@ -162,6 +163,22 @@ public class BookingServiceController {
 
 	}
 
+	
+	@GetMapping("/appointments/patientId/{patientId}")	
+	public ResponseEntity<ResponseStructure<List<BookingResponse>>> getBookingByPatientId(@PathVariable String patientId) {
+
+		List<BookingResponse> response = service.bookingByPatientId(patientId);
+		if (response == null || response.isEmpty()) {
+			return new ResponseEntity<>(ResponseStructure.buildResponse(null,
+					"Clinic  Does not have any booking yet" + patientId, HttpStatus.OK, HttpStatus.OK.value()),
+					HttpStatus.OK);
+		}
+		return new ResponseEntity<>(ResponseStructure.buildResponse(response,
+				"Booking fetched sucessfully on clinicId" + patientId, HttpStatus.OK, HttpStatus.OK.value()),
+				HttpStatus.OK);
+
+	}
+	
 	@GetMapping("/getBookedServicesByClinicIdWithBranchId/{clinicId}/{branchId}")
 	public ResponseEntity<ResponseStructure<List<BookingResponse>>> getBookedServicesByClinicIdWithBranchId(
 	        @PathVariable String clinicId,
@@ -246,11 +263,16 @@ public class BookingServiceController {
 		
 		
 		@GetMapping("/appointments/byIds/{clinicId}/{branchId}")
-		public ResponseEntity<?> retrieveTodayAndTomorrowAndDayAfterTomorrowAppointments(@PathVariable String clinicId,@PathVariable String branchId)
+		public ResponseEntity<?> retrieveOneWeekAppointments(@PathVariable String clinicId,@PathVariable String branchId)
 		{
-			return service.retrieveTodayAndTomorrowAndDayAfterTomorrowAppointments(clinicId, branchId);
+			return service.retrieveOneWeekAppointments(clinicId, branchId);
 		}
 		
+		@GetMapping("/appointments/Inprogress/{customerId}")
+		public ResponseEntity<?> getInprogressAppointmentsByCustomerId(@PathVariable String customerId)
+		{
+			return service.getInProgressAppointmentsByCustomerId(customerId);
+		}
 		
 		@GetMapping("/appointments/byIdsAndDate/{clinicId}/{branchId}/{date}")
 		public ResponseEntity<?> retrieveAppointnmentsByServiceDate(@PathVariable String clinicId,@PathVariable String branchId,@PathVariable String date)
@@ -269,14 +291,22 @@ public class BookingServiceController {
 		{
 			return service.getRelationsByCustomerId(customerId);
 		}
-		
-		
-		@GetMapping("/appointments/customerId/{customerId}")
-		public ResponseEntity<?> retrieveInprogressAppointnmentsByCustomerId(@PathVariable String customerId)
-		{
-			return service.getInProgressAppointmentsByCustomerId(customerId);
+	
+			
+		@GetMapping("/appointments/byInput/{input}")	
+		public ResponseEntity<?> retrieveAppointnmentsByInput(@PathVariable String input) {
+
+			List<BookingInfoByInput> response = service.bookingByInput(input);
+			if (response == null || response.isEmpty()) {
+				return new ResponseEntity<>(ResponseStructure.buildResponse(null,
+						"No booking yet" + input, HttpStatus.OK, HttpStatus.OK.value()),
+						HttpStatus.OK);
+			}
+			return new ResponseEntity<>(ResponseStructure.buildResponse(response,
+					"Booking fetched sucessfully on clinicId" + input, HttpStatus.OK, HttpStatus.OK.value()),
+					HttpStatus.OK);
+
 		}
-		
 		
 		}
 
