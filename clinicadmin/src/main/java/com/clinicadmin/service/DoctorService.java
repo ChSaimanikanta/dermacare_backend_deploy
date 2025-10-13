@@ -10,6 +10,7 @@ import com.clinicadmin.dto.DoctorSlotDTO;
 import com.clinicadmin.dto.DoctorsDTO;
 import com.clinicadmin.dto.LoginBasedOnRoleDTO;
 import com.clinicadmin.dto.Response;
+import com.clinicadmin.dto.TempBlockingSlot;
 
 public interface DoctorService {
 	public Response addDoctor(DoctorsDTO dto);
@@ -45,13 +46,13 @@ public interface DoctorService {
 
 	public Response getDoctorsByClinicIdAndDoctorId(String clinicId, String doctorId);
 
-	public boolean updateSlot(String doctorId, String date, String time);
+	public boolean updateSlot(String doctorId, String branchId,String date, String time);
 
 	public Response getHospitalAndDoctorsUsingSubserviceId(String subServiceId);
 
 	public Response getAllDoctorsBySubserviceId(String subServiceId);
 
-	public boolean makingFalseDoctorSlot(String doctorId, String date, String time);
+	public boolean makingFalseDoctorSlot(String doctorId,String branchId, String date, String time);
 
 	public ResponseEntity<?> notificationToClinic(String hospitalId);
 
@@ -92,5 +93,7 @@ public interface DoctorService {
 
 	Response generateDoctorSlots(String doctorId, String branchId, String date, int intervalMinutes, String openingTime,
 			String closingTime);
+	
+	public boolean blockingSlot(TempBlockingSlot tempBlockingSlot);
 
 }

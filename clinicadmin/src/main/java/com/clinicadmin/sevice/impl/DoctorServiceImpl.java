@@ -14,6 +14,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -31,9 +32,11 @@ import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.data.mongodb.core.query.Update;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import com.clinicadmin.dto.BookingResponse;
 import com.clinicadmin.dto.Branch;
 import com.clinicadmin.dto.ChangeDoctorPasswordDTO;
 import com.clinicadmin.dto.ClinicDTO;
@@ -50,12 +53,14 @@ import com.clinicadmin.dto.DoctorSubServiceDTO;
 import com.clinicadmin.dto.DoctorsDTO;
 import com.clinicadmin.dto.ResBody;
 import com.clinicadmin.dto.Response;
+import com.clinicadmin.dto.TempBlockingSlot;
 import com.clinicadmin.entity.ConsultationType;
 import com.clinicadmin.entity.DoctorCounter;
 import com.clinicadmin.entity.DoctorLoginCredentials;
 import com.clinicadmin.entity.DoctorSlot;
 import com.clinicadmin.entity.Doctors;
 import com.clinicadmin.feignclient.AdminServiceClient;
+import com.clinicadmin.feignclient.BookingFeign;
 import com.clinicadmin.feignclient.NotificationFeign;
 import com.clinicadmin.feignclient.ServiceFeignClient;
 import com.clinicadmin.repository.DoctorLoginCredentialsRepository;
@@ -101,6 +106,13 @@ public class DoctorServiceImpl implements DoctorService {
 
 	@Autowired
 	private MongoOperations mongoOperations;
+	
+	@Autowired
+	private  BookingFeign bookingFeign;
+	
+	private List<TempBlockingSlot> slots = new LinkedList<>();
+	
+	BookingResponse bkng = new BookingResponse();
 
 	public DoctorServiceImpl(DoctorsRepository doctorsRepository,
 			DoctorLoginCredentialsRepository credentialsRepository, PasswordEncoder passwordEncoder,
@@ -1034,37 +1046,75 @@ public class DoctorServiceImpl implements DoctorService {
 
 	}
 
-	public boolean updateSlot(String doctorId, String date, String time) {
-		try {
-			DoctorSlot doctorSlots = slotRepository.findByDoctorIdAndDate(doctorId, date);
-			for (DoctorAvailableSlotDTO slot : doctorSlots.getAvailableSlots()) {
-				if (slot.getSlot().equalsIgnoreCase(time)) {
-					slot.setSlotbooked(true);
-					slotRepository.save(doctorSlots);
-					return true;
-				}
-			}
-			return false;
-		} catch (NullPointerException e) {
-			return false;
-		}
+	public boolean updateSlot(String doctorId, String branchId,String date, String time) {
+	    if (doctorId == null || date == null || time == null) {
+	        return false;
+	    }
+	    try {
+	        // Fetch doctor slots from repository
+	        DoctorSlot doctorSlots = slotRepository.findByDoctorIdAndDateAndBranchId(doctorId,date,branchId);
+
+	        if (doctorSlots == null || doctorSlots.getAvailableSlots() == null || doctorSlots.getAvailableSlots().isEmpty()) {	           
+	            return false;
+	        }
+	        // Find the slot that matches the time
+	        Optional<DoctorAvailableSlotDTO> matchingSlotOpt = doctorSlots.getAvailableSlots()
+	                .stream()
+	                .filter(slot -> time.equalsIgnoreCase(slot.getSlot()))
+	                .findFirst();
+	        if (matchingSlotOpt.isPresent()) {
+	            DoctorAvailableSlotDTO matchingSlot = matchingSlotOpt.get();
+	            
+	            // Check if slot already booked
+	            if (matchingSlot.isSlotbooked()) {                
+	                return false;
+	            }
+	            // Mark the slot as booked
+	            matchingSlot.setSlotbooked(true);
+	            slotRepository.save(doctorSlots);	          
+	            return true;
+	        } else {	          
+	            return false;
+	        }
+	    } catch (Exception e) {
+	        return false;
+	    }
 	}
 
-	public boolean makingFalseDoctorSlot(String doctorId, String date, String time) {
-		try {
-			DoctorSlot doctorSlots = slotRepository.findByDoctorIdAndDate(doctorId, date);
-			for (DoctorAvailableSlotDTO slot : doctorSlots.getAvailableSlots()) {
-				if (slot.getSlot().equalsIgnoreCase(time)) {
-					slot.setSlotbooked(false);
-					slotRepository.save(doctorSlots);
-					return true;
-				}
-			}
-			return false;
-		} catch (NullPointerException e) {
-			return false;
-		}
+
+	public boolean makingFalseDoctorSlot(String doctorId,String branchId, String date, String time) {
+	    if (doctorId == null || date == null || time == null) {
+	        return false;
+	    }
+
+	    try {
+	        DoctorSlot doctorSlots = slotRepository.findByDoctorIdAndDateAndBranchId(doctorId, date,branchId);
+
+	        if (doctorSlots == null || doctorSlots.getAvailableSlots() == null || doctorSlots.getAvailableSlots().isEmpty()) {
+	            return false;
+	        }
+
+	        Optional<DoctorAvailableSlotDTO> matchingSlot = doctorSlots.getAvailableSlots()
+	                .stream()
+	                .filter(slot -> time.equalsIgnoreCase(slot.getSlot()))
+	                .findFirst();
+
+	        if (matchingSlot.isPresent()) {
+	            DoctorAvailableSlotDTO slot = matchingSlot.get();
+	            if (slot.isSlotbooked()) {
+	                slot.setSlotbooked(false);
+	                slotRepository.save(doctorSlots);
+	            }
+	            return true;
+	        }
+
+	        return false;
+
+	    } catch (Exception e) {
+	        return false;
+	    }
 	}
+
 	// ---------------------------------------------Slots using
 	// branchId----------------------------------------------
 
@@ -2781,5 +2831,86 @@ public class DoctorServiceImpl implements DoctorService {
 		}
 		return response;
 	}
+	
+	
+	public boolean blockingSlot(TempBlockingSlot tempBlockingSlot) {
+	    // Validate input
+	    if (tempBlockingSlot == null ||
+	        tempBlockingSlot.getDoctorId() == null ||
+	        tempBlockingSlot.getServiceDate() == null ||
+	        tempBlockingSlot.getServicetime() == null) {
+	        return false;}
+	    try {
+	        // Fetch doctor slots for that date
+	        DoctorSlot doctorSlots = slotRepository.findByDoctorIdAndDateAndBranchId(
+	                tempBlockingSlot.getDoctorId(),
+	                tempBlockingSlot.getServiceDate(),
+	                tempBlockingSlot.getBranchId()
+	        );
+	        if (doctorSlots == null ||
+	            doctorSlots.getAvailableSlots() == null ||
+	            doctorSlots.getAvailableSlots().isEmpty()) {
+	            return false;
+	        }
+	        // Find matching slot by time
+	        Optional<DoctorAvailableSlotDTO> matchingSlotOpt = doctorSlots.getAvailableSlots()
+	                .stream()
+	                .filter(slot -> tempBlockingSlot.getServicetime().equalsIgnoreCase(slot.getSlot()))
+	                .findFirst();
+	        if (matchingSlotOpt.isPresent()) {
+	            DoctorAvailableSlotDTO matchingSlot = matchingSlotOpt.get();
+	            // Check if slot already booked
+	            if (matchingSlot.isSlotbooked()) {
+	                return false;
+	            }
+	            // Mark slot as booked
+	            matchingSlot.setSlotbooked(true);
+	            slotRepository.save(doctorSlots);
+	            return true; // Successfully blocked
+	        } else {
+	            return false; // No matching slot found
+	        }
+	    } catch (Exception e) {
+	        // Log error for debugging (important for production)
+	        System.err.println("Error while blocking slot: " + e.getMessage());
+	        return false;
+	    } finally {
+	        // Optional cleanup or logging
+	        System.out.println("Slot blocking process completed for doctor: " + tempBlockingSlot.getDoctorId());
+	    }
+	}
+
+		
+
+	@Scheduled(fixedRate = 30 * 1000)
+	public void checkingSlots(){
+			//System.out.println(System.currentTimeMillis());
+			//System.out.println(slots);			
+		try {
+			//System.out.println("invoked");
+			slots.stream().map(n->{
+				long millis = System.currentTimeMillis();
+				//System.out.println(millis);
+			long res =  Math.abs(millis - n.getTimeInMillis());
+			//System.out.println(res);
+			if(res >= 120000) {
+				try {
+				bkng =	bookingFeign.blockingSlot(n);
+				}catch(Exception e) {}
+				//System.out.println(bkng);
+				if(bkng == null) {
+					DoctorSlot doctorSlots = slotRepository.findByDoctorIdAndDateAndBranchId(n.getDoctorId(),n.getServiceDate(),n.getBranchId());
+					//System.out.println(doctorSlots);
+					for (DoctorAvailableSlotDTO slot : doctorSlots.getAvailableSlots()) {
+						if (slot.getSlot().equalsIgnoreCase(n.getServicetime())) {
+							slot.setSlotbooked(false);
+							slotRepository.save(doctorSlots);
+							slots.remove(n);
+				}else{}}
+				}else{
+				slots.remove(n);	
+				}} return n;}).toList();
+			
+		}catch(Exception e) {System.out.println(e.getMessage());}}
 
 }

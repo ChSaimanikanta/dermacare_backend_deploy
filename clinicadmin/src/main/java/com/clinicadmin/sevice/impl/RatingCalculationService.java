@@ -158,9 +158,9 @@ public class RatingCalculationService {
                     .toList();
 
             if (matchedRatings.isEmpty()) {
-                response.setSuccess(false);
-                response.setStatus(404);
-                response.setMessage("Invalid or no ratings found for doctorId: " + doctorId);
+                response.setSuccess(true);
+                response.setStatus(200);
+                response.setMessage("No Ratings Available.");
                 return response;
             }
 

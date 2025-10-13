@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 
 import com.dermaCare.customerService.dto.CustomerLoginDTO;
 import com.dermaCare.customerService.dto.DoctorsDTO;
+import com.dermaCare.customerService.dto.TempBlockingSlot;
 import com.dermaCare.customerService.util.Response;
 
 
@@ -45,8 +46,8 @@ public interface ClinicAdminFeign {
 	@GetMapping("/clinic-admin/averageRatings/{branchId}/{doctorId}")
 	public ResponseEntity<Response> getAverageRatings(@PathVariable String branchId, @PathVariable String doctorId);
 	
-	@PutMapping("/clinic-admin/updateDoctorSlotWhileBooking/{doctorId}/{date}/{time}")
-	public boolean updateDoctorSlotWhileBooking(@PathVariable String doctorId, @PathVariable String date,
+	@PutMapping("/clinic-admin/updateDoctorSlotWhileBooking/{doctorId}/{branchId}/{date}/{time}")
+	public boolean updateDoctorSlotWhileBooking(@PathVariable String doctorId,@PathVariable String branchId, @PathVariable String date,
 			@PathVariable String time);
 	
 	@PutMapping("/clinic-admin/updateDoctor/{doctorId}")
@@ -65,6 +66,9 @@ public interface ClinicAdminFeign {
 	 
 	 @GetMapping("/clinic-admin/getAverageRatingsByDoctorId/{doctorId}")
 		public ResponseEntity<Response> getAverageRatingsByDoctorId( @PathVariable String doctorId) ;
+
+	 @PostMapping("/clinic-admin/block/slot")
+	  public boolean blockSlot(@RequestBody TempBlockingSlot tempBlockingSlot);
 	 
 //	//FALLBACK METHODS
 //	

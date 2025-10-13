@@ -28,6 +28,7 @@ import com.clinicadmin.dto.DoctorSlotDTO;
 import com.clinicadmin.dto.DoctorsDTO;
 import com.clinicadmin.dto.LoginBasedOnRoleDTO;
 import com.clinicadmin.dto.Response;
+import com.clinicadmin.dto.TempBlockingSlot;
 import com.clinicadmin.dto.UpdateSlotRequestDTO;
 import com.clinicadmin.service.DoctorNoteService;
 import com.clinicadmin.service.DoctorService;
@@ -302,17 +303,17 @@ public class DoctorController {
 			return new ResponseEntity<>(response, HttpStatus.valueOf(response.getStatus()));
 		}
 
-		@PutMapping("/updateDoctorSlotWhileBooking/{doctorId}/{date}/{time}")
-		public boolean updateDoctorSlotWhileBooking(@PathVariable String doctorId, @PathVariable String date,
+		@PutMapping("/updateDoctorSlotWhileBooking/{doctorId}/{branchId}/{date}/{time}")
+		public boolean updateDoctorSlotWhileBooking(@PathVariable String doctorId,@PathVariable String branchId, @PathVariable String date,
 				@PathVariable String time) {
-			return doctorService.updateSlot(doctorId, date, time);
+			return doctorService.updateSlot(doctorId,branchId, date, time);
 		}
 		
 		
-		@PutMapping("/makingFalseDoctorSlot/{doctorId}/{date}/{time}")
-		public boolean makingFalseDoctorSlot(@PathVariable String doctorId, @PathVariable String date,
+		@PutMapping("/makingFalseDoctorSlot/{doctorId}/{branchId}/{date}/{time}")
+		public boolean makingFalseDoctorSlot(@PathVariable String doctorId,@PathVariable String branchId, @PathVariable String date,
 				@PathVariable String time) {
-			return doctorService.makingFalseDoctorSlot(doctorId, date, time);
+			return doctorService.makingFalseDoctorSlot(doctorId, branchId, date, time);
 		}
 	
 	
@@ -442,5 +443,11 @@ public class DoctorController {
 		        return ResponseEntity.status(response.getStatus()).body(response);
 		    }
 		 
+		 
+		 @PostMapping("/block/slot")
+		    public boolean blockSlot(@RequestBody TempBlockingSlot tempBlockingSlot) {
+		        return doctorService.blockingSlot(tempBlockingSlot);
+		        
+		    }
 
 }
