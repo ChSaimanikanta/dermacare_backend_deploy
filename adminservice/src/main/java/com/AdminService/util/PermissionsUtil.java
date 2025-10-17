@@ -40,8 +40,8 @@ public final class PermissionsUtil {
         adminPermissions.put("Billing", List.of("create", "read", "update", "delete"));
         adminPermissions.put("Analytics", List.of("create", "read", "update", "delete"));
         adminPermissions.put("Tax reports", List.of("create", "read", "update", "delete"));
-        adminPermissions.put("Reffer Doctor", List.of("create", "read", "update", "delete"));
-
+        adminPermissions.put("Refer Doctor", List.of("create", "read", "update", "delete"));
+        adminPermissions.put("Push Notification", List.of("create", "read", "update", "delete"));
         return adminPermissions;
     }
 }

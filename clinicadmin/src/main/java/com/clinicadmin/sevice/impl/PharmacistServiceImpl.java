@@ -216,6 +216,34 @@ public class PharmacistServiceImpl implements PharmacistService {
 		}
 		return response;
 	}
+	
+	
+	@Override
+	public Response getPharmacistsByClinicIdAndBranchId(String hospitalId, String branchId) {
+	    Response response = new Response();
+
+	    List<Pharmacist> pharmacists = pharmacistRepository.findByHospitalIdAndBranchId(hospitalId, branchId);
+
+	    if (pharmacists.isEmpty()) {
+	        response.setSuccess(false);
+	        response.setMessage("No pharmacists found for hospital " + hospitalId + " and branch " + branchId);
+	        response.setStatus(HttpStatus.NOT_FOUND.value());
+	        response.setData(null);
+	    } else {
+	        response.setSuccess(true);
+	        response.setMessage("Pharmacists retrieved successfully");
+	        response.setStatus(HttpStatus.OK.value());
+	        // ✅ Map entities to DTOs to get string ID
+	        response.setData(pharmacists.stream().map(this::mapEntityToDto).toList());
+	    }
+
+	    return response;
+	}
+
+
+
+
+
 
 	// ---------------- LOGIN ----------------
 //	@Override
@@ -277,6 +305,8 @@ public class PharmacistServiceImpl implements PharmacistService {
 	// ---------------- Helper Methods ----------------
 	private Pharmacist mapDtoToEntity(PharmacistDTO dto) {
 		Pharmacist pharmacist = new Pharmacist();
+	    // Convert MongoDB ObjectId or any complex id to simple string
+	    dto.setId(pharmacist.getId() != null ? pharmacist.getId().toString() : null);
 		pharmacist.setHospitalId(dto.getHospitalId());
 		pharmacist.setHospitalName(dto.getHospitalName());
 		pharmacist.setBranchId(dto.getBranchId());
@@ -566,6 +596,7 @@ public class PharmacistServiceImpl implements PharmacistService {
 	        }
 	    }
 	}
+
 
 
 

@@ -9,5 +9,6 @@ import lombok.NoArgsConstructor;
 @Builder
 public class DatesDTO {
     private String date;
-    private int sitting;
+    private Integer sitting;
+    private String status; 
 }

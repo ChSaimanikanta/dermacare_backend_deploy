@@ -8,33 +8,16 @@ import com.clinicadmin.entity.SecurityStaff;
 
 public class SecurityStaffMapper {
 
-    // Encode to Base64 (used when saving images/PDFs to DB)
-    private static String encodeIfNotBase64(String input) {
-        if (input == null || input.isBlank()) return input;
-
-        // Check if already Base64
-        String base64Pattern = "^[A-Za-z0-9+/]*={0,2}$";
-        if (input.matches(base64Pattern) && input.length() % 4 == 0) {
-            try {
-                Base64.getDecoder().decode(input); // valid Base64
-                return input; // already Base64, return as is
-            } catch (IllegalArgumentException e) {
-                // not Base64, so encode
-            }
-        }
+    // Always encode string to Base64
+    private static String encode(String input) {
+        if (input == null) return null;
         return Base64.getEncoder().encodeToString(input.getBytes(StandardCharsets.UTF_8));
     }
 
-    // Always return safe Base64 for frontend (for <img> or <embed>)
-    private static String safeReturnAsBase64(String input) {
-        if (input == null) return null;
-        try {
-            Base64.getDecoder().decode(input); // valid Base64
-            return input; // already Base64
-        } catch (Exception e) {
-            // encode if not Base64
-            return Base64.getEncoder().encodeToString(input.getBytes(StandardCharsets.UTF_8));
-        }
+    // Always decode Base64 to string
+    private static String decode(String base64) {
+        if (base64 == null) return null;
+        return new String(Base64.getDecoder().decode(base64), StandardCharsets.UTF_8);
     }
 
     // DTO → Entity (encode before saving)
@@ -48,6 +31,7 @@ public class SecurityStaffMapper {
         staff.setHospitalName(dto.getHospitalName());
         staff.setBranchId(dto.getBranchId());
         staff.setRole(dto.getRole());
+        staff.setBranchName(dto.getBranchName());
         staff.setPermissions(dto.getPermissions());
         staff.setFullName(dto.getFullName());
         staff.setDateOfBirth(dto.getDateOfBirth());
@@ -60,11 +44,11 @@ public class SecurityStaffMapper {
         staff.setBankAccountDetails(dto.getBankAccountDetails());
         staff.setShiftTimingsOrAvailability(dto.getShiftTimingsOrAvailability());
 
-        // Encode certificates
-        staff.setPoliceVerification(encodeIfNotBase64(dto.getPoliceVerification()));
-        staff.setPoliceVerificationCertificate(encodeIfNotBase64(dto.getPoliceVerificationCertificate()));
-        staff.setMedicalFitnessCertificate(encodeIfNotBase64(dto.getMedicalFitnessCertificate()));
-        staff.setProfilePicture(encodeIfNotBase64(dto.getProfilePicture()));
+        // Always encode files/images
+        staff.setPoliceVerification(encode(dto.getPoliceVerification()));
+        staff.setPoliceVerificationCertificate(encode(dto.getPoliceVerificationCertificate()));
+        staff.setMedicalFitnessCertificate(encode(dto.getMedicalFitnessCertificate()));
+        staff.setProfilePicture(encode(dto.getProfilePicture()));
 
         staff.setEmailId(dto.getEmailId());
         staff.setTraningOrGuardLicense(dto.getTraningOrGuardLicense());
@@ -73,7 +57,7 @@ public class SecurityStaffMapper {
         return staff;
     }
 
-    // Entity → DTO (return Base64 so frontend can render/download)
+    // Entity → DTO (decode before sending to frontend)
     public static SecurityStaffDTO toDTO(SecurityStaff staff) {
         if (staff == null) return null;
 
@@ -83,6 +67,7 @@ public class SecurityStaffMapper {
         dto.setClinicId(staff.getClinicId());
         dto.setHospitalName(staff.getHospitalName());
         dto.setBranchId(staff.getBranchId());
+        dto.setBranchName(staff.getBranchName());
         dto.setRole(staff.getRole());
         dto.setFullName(staff.getFullName());
         dto.setDateOfBirth(staff.getDateOfBirth());
@@ -94,10 +79,12 @@ public class SecurityStaffMapper {
         dto.setShiftTimingsOrAvailability(staff.getShiftTimingsOrAvailability());
         dto.setAddress(staff.getAddress());
         dto.setBankAccountDetails(staff.getBankAccountDetails());
-        dto.setPoliceVerificationCertificate(safeReturnAsBase64(staff.getPoliceVerificationCertificate()));
-        dto.setPoliceVerification(safeReturnAsBase64(staff.getPoliceVerification()));
-        dto.setMedicalFitnessCertificate(safeReturnAsBase64(staff.getMedicalFitnessCertificate()));
-        dto.setProfilePicture(safeReturnAsBase64(staff.getProfilePicture()));
+
+        // Always decode files/images
+        dto.setPoliceVerification(decode(staff.getPoliceVerification()));
+        dto.setPoliceVerificationCertificate(decode(staff.getPoliceVerificationCertificate()));
+        dto.setMedicalFitnessCertificate(decode(staff.getMedicalFitnessCertificate()));
+        dto.setProfilePicture(decode(staff.getProfilePicture()));
 
         dto.setEmailId(staff.getEmailId());
         dto.setTraningOrGuardLicense(staff.getTraningOrGuardLicense());
