@@ -4,6 +4,7 @@ import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -14,6 +15,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.dermacare.notification_service.dto.NotificationDTO;
 import com.dermacare.notification_service.dto.NotificationResponse;
 import com.dermacare.notification_service.dto.NotificationToCustomer;
+import com.dermacare.notification_service.dto.PriceDropAlertDto;
 import com.dermacare.notification_service.dto.ResBody;
 import com.dermacare.notification_service.service.ServiceInterface;
 
@@ -81,5 +83,29 @@ public class NotificationController {
 		 return null;
 	}	
 	
+	@PostMapping("/pricedrop/notification")
+	public ResponseEntity<?> pricedrop(@RequestBody PriceDropAlertDto priceDropAlertDto){
+		return notificationService.sendImageNotifications(priceDropAlertDto);
+		 
+	}	
+	
+	
+	@GetMapping("/retrieve/priceDropNotification/{clinicId}/{branchId}")
+	public ResponseEntity<?> priceDropNotification(@PathVariable String clinicId,@PathVariable String branchId ){
+		return notificationService.priceDropNotifications(clinicId, branchId);
+}	
+	
+	@PutMapping("/update/priceDropNotification/{clinicId}/{branchId}/{id}")
+	public ResponseEntity<?> updatePriceDropNotification(@PathVariable String clinicId,@PathVariable String branchId,
+		@PathVariable String id,@RequestBody PriceDropAlertDto dto ){
+		return notificationService.updatePriceDropAlert(clinicId, branchId, id,dto);
+}	
+	
+	
+	@DeleteMapping("/delete/priceDropNotification/{clinicId}/{branchId}/{id}")
+	public ResponseEntity<?> deletePriceDropNotification(@PathVariable String clinicId,@PathVariable String branchId,@PathVariable String id ){
+		return notificationService.deletePriceDropAlerts(clinicId, branchId,id);
+}	
+		
 	
 }

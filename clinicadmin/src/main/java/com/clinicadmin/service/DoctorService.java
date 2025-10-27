@@ -100,4 +100,12 @@ public interface DoctorService {
 
 	Response deleteDoctorSlotbyDate(String doctorId, String branchId, String date);
 
+	Response getAllDoctorsWithRespectiveClinic(int consultationType);
+
+	Response getRecommendedClinicsAndDoctors(List<String> keyPointsFromUser, int consultationType);
+
+	Response getAllDoctorsWithRespectiveClinic(String hospitalId, int consultationType);
+
+	Response getRecommendedClinicsAndDoctors(String hospitalId, List<String> keyPointsFromUser, int consultationType);
+
 }

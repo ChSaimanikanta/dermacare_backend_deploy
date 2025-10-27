@@ -404,6 +404,21 @@ public class DoctorController {
 			    return ResponseEntity.status(response.getStatus()).body(response);
 			
 		}
+		@GetMapping("/clinics/getAllDoctorWithRespectiveClinics/{consultationType}")
+		public ResponseEntity<Response> getClinicsWithDoctors(@PathVariable int consultationType) {
+		    Response response = doctorService.getAllDoctorsWithRespectiveClinic(consultationType);
+		    return ResponseEntity.status(response.getStatus()).body(response);
+		}
+		@GetMapping("/clinics/getAllDoctorWithRespectiveClinics/{hospitalId}/{consultationType}")
+		public ResponseEntity<Response> getClinicsWithDoctors(
+		        @PathVariable String hospitalId,
+		        @PathVariable int consultationType) {
+
+		    Response response = doctorService.getAllDoctorsWithRespectiveClinic(hospitalId, consultationType);
+		    return ResponseEntity.status(response.getStatus()).body(response);
+		}
+
+
 		
 // --------------------Login By Using roles-------------------
 		@PostMapping("/loginUsingRoles")
@@ -462,7 +477,38 @@ public class DoctorController {
 		        return ResponseEntity.status(response.getStatus()).body(response);
 		    }
 		 
-		 
+		 @GetMapping("/getBestDoctorByKeyWordsAndConsultation/{keyPoints}/{consultationType}")
+		 public ResponseEntity<Response> getRecommendedClinicsAndDoctors(
+		         @PathVariable String keyPoints,
+		         @PathVariable int consultationType) {
+
+		     // Convert comma-separated keywords into a list
+		     List<String> keyPointList = Arrays.stream(keyPoints.split(","))
+		             .map(String::trim)
+		             .collect(Collectors.toList());
+
+		     // Call service method with consultation type
+		     Response response = doctorService.getRecommendedClinicsAndDoctors(keyPointList, consultationType);
+
+		     // Return proper HTTP response
+		     return ResponseEntity.status(response.getStatus()).body(response);
+		 }
+		 @GetMapping("/getBestDoctorByKeyWords/{hospitalId}/{keyPoints}/{consultationType}")
+		 public ResponseEntity<Response> getRecommendedClinicsAndDoctors(
+		         @PathVariable String hospitalId,
+		         @PathVariable String keyPoints,
+		         @PathVariable int consultationType) {
+
+		     // Convert comma-separated key points to List<String>
+		     List<String> keyPointList = Arrays.stream(keyPoints.split(","))
+		             .map(String::trim)
+		             .collect(Collectors.toList());
+
+		     Response response = doctorService.getRecommendedClinicsAndDoctors(hospitalId, keyPointList, consultationType);
+		     return ResponseEntity.status(response.getStatus()).body(response);
+		 }
+
+
 		 @PostMapping("/block/slot")
 		    public boolean blockSlot(@RequestBody TempBlockingSlot tempBlockingSlot) {
 		        return doctorService.blockingSlot(tempBlockingSlot);

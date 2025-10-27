@@ -36,6 +36,7 @@ import com.dermacare.bookingService.dto.DatesDTO;
 import com.dermacare.bookingService.dto.DoctorSaveDetailsDTO;
 import com.dermacare.bookingService.dto.RelationInfoDTO;
 import com.dermacare.bookingService.dto.TreatmentDetailsDTO;
+import com.dermacare.bookingService.dto.TreatmentResponseDTO;
 import com.dermacare.bookingService.entity.Booking;
 import com.dermacare.bookingService.entity.ReportsList;
 import com.dermacare.bookingService.feign.ClinicAdminFeign;
@@ -47,6 +48,8 @@ import com.dermacare.bookingService.util.Response;
 import com.dermacare.bookingService.util.ResponseStructure;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 
 @Service
 public class BookingService_ServiceImpl implements BookingService_Service {
@@ -72,143 +75,299 @@ public class BookingService_ServiceImpl implements BookingService_Service {
 	public DoctorSaveDetailsDTO sd = new DoctorSaveDetailsDTO();
 	 LocalDate exp = null;
 
-	@Override
-	public ResponseEntity<?> addService(BookingRequset request) {
-	    ResponseStructure<BookingResponse> response = new ResponseStructure<>();
-	    Booking entity = toEntity(request);
+//	@Override
+//	public ResponseEntity<?> addService(BookingRequset request) {
+//	    ResponseStructure<BookingResponse> response = new ResponseStructure<>();
+//	    Booking entity = toEntity(request);
+//
+//	    if (request.getVisitType().equalsIgnoreCase("follow-up")) {
+//	        Booking b = repository.findByMobileNumberAndPatientIdAndBookingId(
+//	                request.getMobileNumber(), request.getPatientId(), request.getBookingId());
+//	        if (b != null) {
+//	            if (b.getStatus().equalsIgnoreCase("In-Progress")) {
+//	                DateTimeFormatter date = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+//	                LocalDate previousServiceDate = LocalDate.parse(b.getServiceDate(), date);
+//
+//	                // ✅ Safer expiration parsing
+//	                int days = Integer.parseInt(b.getConsultationExpiration().split(" ")[0]);
+//	                LocalDate plusDays = previousServiceDate.plusDays(days);
+//
+//	                LocalDate currentAppointmentServiceDate = LocalDate.parse(request.getServiceDate(), date);
+//
+//	                boolean isEligible = false;
+//	                if (!currentAppointmentServiceDate.isBefore(previousServiceDate)
+//	                        && !currentAppointmentServiceDate.isAfter(plusDays)
+//	                        && b.getFreeFollowUpsLeft() > 0) {
+//	                    isEligible = true;
+//	                }
+//
+//	                if (isEligible) {
+//	                    b.setStatus("Confirmed");
+//	                    b.setServicetime(request.getServicetime());
+//	                    b.setFollowupDate(request.getServiceDate());
+//	                    b.setVisitType(request.getVisitType());
+//
+//	                    // Decrement free follow-ups left
+//	                    //b.setFreeFollowUpsLeft(b.getFreeFollowUpsLeft() - 1);
+//
+//	                    Booking ety = repository.save(b);
+//	                    ety.setReports(null);
+//	                    ety.setNotes(null);
+//	                    ety.setAttachments(null);
+//	                    ety.setConsentFormPdf(null);
+//	                    ety.setPrescriptionPdf(null);
+//
+//	                    try {
+//	                        kafkaProducer.publishBooking(ety);
+//	                    } catch (Exception e) {
+//	                        throw new RuntimeException("Unable to book service");
+//	                    }
+//
+//	                    BookingResponse res = new ObjectMapper().convertValue(ety, BookingResponse.class);
+//	                    response = ResponseStructure.buildResponse(res, "Service Booked Successfully",
+//	                            HttpStatus.OK, HttpStatus.OK.value());
+//
+//	                } else {
+//	                    response = ResponseStructure.buildResponse(null,
+//	                            "Unable to proceed with booking. Please check the service date and your available free follow-ups.",
+//	                            HttpStatus.PAYMENT_REQUIRED, HttpStatus.PAYMENT_REQUIRED.value());
+//	                }
+//	            } else {
+//	                response = ResponseStructure.buildResponse(null,
+//	                        "No In Progress Appointments Found With Provided AppointmentId.",
+//	                        HttpStatus.NOT_FOUND, HttpStatus.NOT_FOUND.value());
+//	            }
+//	        } else {
+//	            response = ResponseStructure.buildResponse(null,
+//	                    "No Appointment Found.",
+//	                    HttpStatus.NOT_FOUND, HttpStatus.NOT_FOUND.value());
+//	        }
+//	    } else {
+//	        entity.setStatus("Confirmed");
+//	        Booking res = repository.save(entity);
+//	        res.setReports(null);
+//	        res.setNotes(null);
+//	        res.setAttachments(null);
+//	        res.setConsentFormPdf(null);
+//	        res.setPrescriptionPdf(null);
+//
+//	        try {
+//	            kafkaProducer.publishBooking(res);
+//	        } catch (Exception e) {
+//	            throw new RuntimeException("Unable to book service");
+//	        }
+//
+//	        BookingResponse bRes = new ObjectMapper().convertValue(res, BookingResponse.class);
+//	        response = ResponseStructure.buildResponse(bRes, "Service Booked Successfully",
+//	                HttpStatus.CREATED, HttpStatus.CREATED.value());
+//	    }
+//
+//	    return ResponseEntity.status(response.getStatusCode()).body(response);
+//	}
 
-	    if (request.getVisitType().equalsIgnoreCase("follow-up")) {
-	        Booking b = repository.findByMobileNumberAndPatientIdAndBookingId(
-	                request.getMobileNumber(), request.getPatientId(), request.getBookingId());
-	        if (b != null) {
-	            if (b.getStatus().equalsIgnoreCase("In-Progress")) {
-	                DateTimeFormatter date = DateTimeFormatter.ofPattern("yyyy-MM-dd");
-	                LocalDate previousServiceDate = LocalDate.parse(b.getServiceDate(), date);
+	 @Override
+	 public ResponseEntity<?> addService(BookingRequset request) {
+	     ResponseStructure<BookingResponse> response = new ResponseStructure<>();
+	     Booking entity = toEntity(request);
 
-	                // ✅ Safer expiration parsing
-	                int days = Integer.parseInt(b.getConsultationExpiration().split(" ")[0]);
-	                LocalDate plusDays = previousServiceDate.plusDays(days);
+	     try {
+	         // 🧩 Handle null or empty visitType safely
+	         if (request.getVisitType() == null) {
+	             response = ResponseStructure.buildResponse(null,
+	                     "Visit type is required.",
+	                     HttpStatus.BAD_REQUEST,
+	                     HttpStatus.BAD_REQUEST.value());
+	             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+	         }
 
-	                LocalDate currentAppointmentServiceDate = LocalDate.parse(request.getServiceDate(), date);
+	         // 🩺 FOLLOW-UP CASE
+	         if (request.getVisitType().equalsIgnoreCase("follow-up")) {
+	             Booking b = repository.findByMobileNumberAndPatientIdAndBookingId(
+	                     request.getMobileNumber(), request.getPatientId(), request.getBookingId());
 
-	                boolean isEligible = false;
-	                if (!currentAppointmentServiceDate.isBefore(previousServiceDate)
-	                        && !currentAppointmentServiceDate.isAfter(plusDays)
-	                        && b.getFreeFollowUpsLeft() > 0) {
-	                    isEligible = true;
-	                }
+	             if (b == null) {
+	                 response = ResponseStructure.buildResponse(null,
+	                         "No Appointment Found.",
+	                         HttpStatus.NOT_FOUND,
+	                         HttpStatus.NOT_FOUND.value());
+	                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+	             }
 
-	                if (isEligible) {
-	                    b.setStatus("Confirmed");
-	                    b.setServicetime(request.getServicetime());
-	                    b.setFollowupDate(request.getServiceDate());
-	                    b.setVisitType(request.getVisitType());
+	             if (!"In-Progress".equalsIgnoreCase(b.getStatus())) {
+	                 response = ResponseStructure.buildResponse(null,
+	                         "No In-Progress Appointments Found With Provided AppointmentId.",
+	                         HttpStatus.NOT_FOUND,
+	                         HttpStatus.NOT_FOUND.value());
+	                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+	             }
 
-	                    // Decrement free follow-ups left
-	                    //b.setFreeFollowUpsLeft(b.getFreeFollowUpsLeft() - 1);
+	             DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
 
-	                    Booking ety = repository.save(b);
-	                    ety.setReports(null);
-	                    ety.setNotes(null);
-	                    ety.setAttachments(null);
-	                    ety.setConsentFormPdf(null);
-	                    ety.setPrescriptionPdf(null);
+	             // 🧠 Safe date parsing
+	             LocalDate previousServiceDate;
+	             try {
+	                 previousServiceDate = LocalDate.parse(b.getServiceDate(), dateFormatter);
+	             } catch (Exception e) {
+	                 return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+	                         .body(ResponseStructure.buildResponse(null,
+	                                 "Invalid previous service date format for bookingId: " + b.getBookingId(),
+	                                 HttpStatus.BAD_REQUEST,
+	                                 HttpStatus.BAD_REQUEST.value()));
+	             }
 
-	                    try {
-	                        kafkaProducer.publishBooking(ety);
-	                    } catch (Exception e) {
-	                        throw new RuntimeException("Unable to book service");
-	                    }
+	             // 🧠 Safe consultation expiration parsing
+	             int days = 7; // default fallback
+	             try {
+	                 String exp = b.getConsultationExpiration();
+	                 if (exp != null && exp.matches("\\d+.*")) {
+	                     days = Integer.parseInt(exp.split(" ")[0]);
+	                 }
+	             } catch (Exception e) {
+	                 // fallback already handled
+	             }
 
-	                    BookingResponse res = new ObjectMapper().convertValue(ety, BookingResponse.class);
-	                    response = ResponseStructure.buildResponse(res, "Service Booked Successfully",
-	                            HttpStatus.OK, HttpStatus.OK.value());
+	             LocalDate plusDays = previousServiceDate.plusDays(days);
 
-	                } else {
-	                    response = ResponseStructure.buildResponse(null,
-	                            "Unable to proceed with booking. Please check the service date and your available free follow-ups.",
-	                            HttpStatus.PAYMENT_REQUIRED, HttpStatus.PAYMENT_REQUIRED.value());
-	                }
-	            } else {
-	                response = ResponseStructure.buildResponse(null,
-	                        "No In Progress Appointments Found With Provided AppointmentId.",
-	                        HttpStatus.NOT_FOUND, HttpStatus.NOT_FOUND.value());
-	            }
-	        } else {
-	            response = ResponseStructure.buildResponse(null,
-	                    "No Appointment Found.",
-	                    HttpStatus.NOT_FOUND, HttpStatus.NOT_FOUND.value());
-	        }
-	    } else {
-	        entity.setStatus("Confirmed");
-	        Booking res = repository.save(entity);
-	        res.setReports(null);
-	        res.setNotes(null);
-	        res.setAttachments(null);
-	        res.setConsentFormPdf(null);
-	        res.setPrescriptionPdf(null);
+	             // 🧠 Safe current service date parsing
+	             LocalDate currentAppointmentServiceDate;
+	             try {
+	                 currentAppointmentServiceDate = LocalDate.parse(request.getServiceDate(), dateFormatter);
+	             } catch (Exception e) {
+	                 return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+	                         .body(ResponseStructure.buildResponse(null,
+	                                 "Invalid service date format in request: " + request.getServiceDate(),
+	                                 HttpStatus.BAD_REQUEST,
+	                                 HttpStatus.BAD_REQUEST.value()));
+	             }
 
-	        try {
-	            kafkaProducer.publishBooking(res);
-	        } catch (Exception e) {
-	            throw new RuntimeException("Unable to book service");
-	        }
+	             boolean isEligible = !currentAppointmentServiceDate.isBefore(previousServiceDate)
+	                     && !currentAppointmentServiceDate.isAfter(plusDays)
+	                     && (b.getFreeFollowUpsLeft() != null && b.getFreeFollowUpsLeft() > 0);
 
-	        BookingResponse bRes = new ObjectMapper().convertValue(res, BookingResponse.class);
-	        response = ResponseStructure.buildResponse(bRes, "Service Booked Successfully",
-	                HttpStatus.CREATED, HttpStatus.CREATED.value());
-	    }
+	             if (!isEligible) {
+	                 response = ResponseStructure.buildResponse(null,
+	                         "Unable to proceed with booking. Please check service date and free follow-ups.",
+	                         HttpStatus.PAYMENT_REQUIRED,
+	                         HttpStatus.PAYMENT_REQUIRED.value());
+	                 return ResponseEntity.status(HttpStatus.PAYMENT_REQUIRED).body(response);
+	             }
 
-	    return ResponseEntity.status(response.getStatusCode()).body(response);
-	}
+	             // 🧩 Update booking
+	             b.setStatus("Confirmed");
+	             b.setServicetime(request.getServicetime());
+	             b.setFollowupDate(request.getServiceDate());
+	             b.setVisitType(request.getVisitType());
+	             // optionally decrement follow-ups left if needed
+	             // b.setFreeFollowUpsLeft(b.getFreeFollowUpsLeft() - 1);
+
+	             Booking updatedBooking = repository.save(b);
+	             nullifyLargeFields(updatedBooking);
+
+	             try {
+	                 kafkaProducer.publishBooking(updatedBooking);
+	             } catch (Exception e) {
+	                 // Don’t throw 500 — just log and continue
+	                 e.printStackTrace();
+	                 System.err.println("⚠️ Kafka publish failed: " + e.getMessage());
+	             }
+
+	             BookingResponse res = new ObjectMapper().convertValue(updatedBooking, BookingResponse.class);
+	             response = ResponseStructure.buildResponse(res,
+	                     "Service Booked Successfully",
+	                     HttpStatus.OK,
+	                     HttpStatus.OK.value());
+	             return ResponseEntity.status(HttpStatus.OK).body(response);
+	         }
+
+	         // 🩺 NEW BOOKING (non-follow-up)
+	         entity.setStatus("Confirmed");
+	         Booking savedBooking = repository.save(entity);
+	         nullifyLargeFields(savedBooking);
+
+	         try {
+	             kafkaProducer.publishBooking(savedBooking);
+	         } catch (Exception e) {
+	             e.printStackTrace();
+	             System.err.println("⚠️ Kafka publish failed: " + e.getMessage());
+	         }
+
+	         BookingResponse bRes = new ObjectMapper().convertValue(savedBooking, BookingResponse.class);
+	         response = ResponseStructure.buildResponse(bRes,
+	                 "Service Booked Successfully",
+	                 HttpStatus.CREATED,
+	                 HttpStatus.CREATED.value());
+	         return ResponseEntity.status(HttpStatus.CREATED).body(response);
+
+	     } catch (Exception e) {
+	         // ✅ Never leak stack traces to Feign
+	         e.printStackTrace();
+	         response = ResponseStructure.buildResponse(null,
+	                 "Internal Server Error: " + e.getMessage(),
+	                 HttpStatus.INTERNAL_SERVER_ERROR,
+	                 HttpStatus.INTERNAL_SERVER_ERROR.value());
+	         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+	     }
+	 }
+
+	 /**
+	  * Helper to nullify heavy fields before returning the booking
+	  */
+	 private void nullifyLargeFields(Booking booking) {
+	     booking.setReports(null);
+	     booking.setNotes(null);
+	     booking.setAttachments(null);
+	     booking.setConsentFormPdf(null);
+	     booking.setPrescriptionPdf(null);
+	 }
 
 		
-	private Booking toEntity(BookingRequset request) {
-	    Booking entity = new ObjectMapper().convertValue(request, Booking.class);
-	    // Set booking timestamp in IST
-	    ZonedDateTime istTime = ZonedDateTime.now(ZoneId.of("Asia/Kolkata"));
-	    DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd-MM-yyyy hh:mm a");
-	    String formattedTime = istTime.format(formatter);
-	    entity.setBookedAt(formattedTime);
-	    // Set follow-up count
-	    entity.setFreeFollowUpsLeft(request.getFreeFollowUps());
-	    // Set channel ID for online/video consultations
-	    if (request.getConsultationType() != null) {
-	        if (request.getConsultationType().equalsIgnoreCase("video consultation") ||
-	            request.getConsultationType().equalsIgnoreCase("online consultation")) {
-	            entity.setChannelId(randomNumber());
-	        } else {
-	            entity.setChannelId(null);
-	        }}
-	    // Handle patient ID logic
-	    if (request.getBookingFor().equalsIgnoreCase("Someone")) {
-	        if (request.getRelation() != null &&
-	            (request.getPatientId() == null || request.getPatientId().trim().isEmpty())) {
+	 private Booking toEntity(BookingRequset request) {
+		    Booking entity = new ObjectMapper().convertValue(request, Booking.class);
+		    // Set booking timestamp in IST
+		    ZonedDateTime istTime = ZonedDateTime.now(ZoneId.of("Asia/Kolkata"));
+		    DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd-MM-yyyy hh:mm a");
+		    String formattedTime = istTime.format(formatter);
+		    entity.setBookedAt(formattedTime);
+		    // Set follow-up count
+		    entity.setFreeFollowUpsLeft(request.getFreeFollowUps());
+		    // Set channel ID for online/video consultations
+		    if (request.getConsultationType() != null) {
+		        if (request.getConsultationType().equalsIgnoreCase("video consultation") ||
+		            request.getConsultationType().equalsIgnoreCase("online consultation")) {
+		            entity.setChannelId(randomNumber());
+		        } else {
+		            entity.setChannelId(null);
+		        }}
+		    // Handle patient ID logic
+		    if(request.getBookingFor() != null) {
+		    if (request.getBookingFor().equalsIgnoreCase("Someone")) {
+		        if (request.getRelation() != null &&
+		            (request.getPatientId() == null || request.getPatientId().trim().isEmpty())) {
 
-	            List<Booking> existingBooking = repository.findByRelationIgnoreCaseAndCustomerIdAndNameIgnoreCase(
-	                request.getRelation(), request.getCustomerId(), request.getName());
+		            List<Booking> existingBooking = repository.findByRelationIgnoreCaseAndCustomerIdAndNameIgnoreCase(
+		                request.getRelation(), request.getCustomerId(), request.getName());
 
-	            if (existingBooking != null && !existingBooking.isEmpty()) {
-	                for (Booking b : existingBooking) {
-	                    if (b != null) {
-	                        entity.setPatientId(b.getPatientId()); // Reuse existing patient ID
-	                        break;
-	                    }}}else{
-	                entity.setPatientId(generatePatientId(request)); // Generate new patient ID
-	            }
-	        } else {
-	            entity.setPatientId(request.getPatientId()); // Use provided patient ID
-	        }
-	    } else {
-	        if (request.getPatientId() == null || request.getPatientId().trim().isEmpty()) {
-	            entity.setPatientId(generatePatientId(request)); // Generate new patient ID
-	        } else {
-	            entity.setPatientId(request.getPatientId()); // Use provided patient ID
-	        }
-	    }
+		            if (existingBooking != null && !existingBooking.isEmpty()) {
+		                for (Booking b : existingBooking) {
+		                    if (b != null) {
+		                        entity.setPatientId(b.getPatientId()); // Reuse existing patient ID
+		                        break;
+		                    }}}else{
+		                entity.setPatientId(generatePatientId(request)); // Generate new patient ID
+		            }
+		        } else {
+		            entity.setPatientId(request.getPatientId()); // Use provided patient ID
+		        }
+		    } else {
+		        if (request.getPatientId() == null || request.getPatientId().trim().isEmpty()) {
+		            entity.setPatientId(generatePatientId(request)); // Generate new patient ID
+		        } else {
+		            entity.setPatientId(request.getPatientId()); // Use provided patient ID
+		        }
+		    }}
 
-	    return entity;
-	}
+		    return entity;
+		}
 	
 	
 	private BookingResponse toResponse(Booking entity) {		
@@ -614,24 +773,23 @@ public class BookingService_ServiceImpl implements BookingService_Service {
 		}
 		return toResponses(reversedBookings);
 	}
-	
-	
-	
+		
 	@Override
-	public List<BookingInfoByInput> bookingByInput(String input) {
+	public List<BookingInfoByInput> bookingByInput(String input,String clinicId) {
 		   List<BookingInfoByInput> outpt = new ArrayList<>();
 	       try {
-	    	 List<Booking> bookings = repository.findByMobileNumber(input);
+	    	 List<Booking> bookings = repository.findByMobileNumberAndClinicId(input,clinicId);
 		        // If still not found, try customerId
+	    	// System.out.println(bookings);
 		    	 if(bookings == null || bookings.isEmpty()) {
-		            bookings = repository.findByCustomerId(input);
-		           // System.out.println(bookings);
+		            bookings = repository.findByCustomerIdAndClinicId(input,clinicId);
+		            //System.out.println(bookings);
 		    	} 
 	        	 if(bookings == null || bookings.isEmpty()) {
-		            bookings = repository.findByNameIgnoreCase(input);
+		            bookings = repository.findByNameIgnoreCaseAndClinicId(input,clinicId);
 		          // System.out.println(bookings);
 		        }
-	        	if(bookings == null || bookings.isEmpty()) {
+	        	if(bookings != null && !bookings.isEmpty()) {
 		        for(Booking b : bookings) {
 		        	//System.out.println(b);
 		        BookingInfoByInput bkng = new BookingInfoByInput() ;	
@@ -647,7 +805,7 @@ public class BookingService_ServiceImpl implements BookingService_Service {
 		        bkng.setRelation(b.getRelation());
 		        outpt.add(bkng);}}
 	        if(input.contains("_")){
-		    List<Booking> bookgs = repository.findByPatientId(input);
+		    List<Booking> bookgs = repository.findByPatientIdAndClinicId(input,clinicId);
 	    	if( bookgs != null && !bookgs.isEmpty()) {
 		        Booking b = bookgs.get(bookgs.size()-1);	
 		        BookingInfoByInput bkng = new BookingInfoByInput() ;	
@@ -686,8 +844,7 @@ public class BookingService_ServiceImpl implements BookingService_Service {
 	    return outpt;
 	}
 
-	
-	
+		
 	@Override
 	public List<BookingResponse> bookingByClinicId(String clinicId) {
 		List<Booking> bookings = repository.findByClinicId(clinicId);
@@ -1259,7 +1416,6 @@ public class BookingService_ServiceImpl implements BookingService_Service {
 	        if (bookingResponse.getFreeFollowUpsLeft() != null) entity.setFreeFollowUpsLeft(bookingResponse.getFreeFollowUpsLeft());
 	        if (bookingResponse.getFreeFollowUps() != null) entity.setFreeFollowUps(bookingResponse.getFreeFollowUps());
 	        if (bookingResponse.getVisitCount() != null) entity.setVisitCount(bookingResponse.getVisitCount());
-	        if (bookingResponse.getFollowupStatus() != null) entity.setFollowupStatus(bookingResponse.getFollowupStatus());
 	        if (bookingResponse.getFollowupDate() != null) entity.setFollowupDate(bookingResponse.getFollowupDate());
 
 	        // --- Update sitting summary ---
@@ -1515,149 +1671,6 @@ public class BookingService_ServiceImpl implements BookingService_Service {
 		}
 		
 		
-		
-
-//public ResponseEntity<?> getInProgressAppointmentsByCustomerId(String customerId) {
-//    ResponseStructure<List<BookingResponse>> res = new ResponseStructure<>();
-//    List<BookingResponse> finalList = new ArrayList<>();
-//    Response response = new Response();
-//    DoctorSaveDetailsDTO saveDetails = new DoctorSaveDetailsDTO();
-//
-//    try {
-//        List<Booking> booked = repository.findByCustomerId(customerId);
-//        if (booked == null || booked.isEmpty()) {
-//            res.setStatusCode(200);
-//            res.setHttpStatus(HttpStatus.OK);
-//            res.setMessage("No bookings found for customer");
-//            res.setData(finalList);
-//            return ResponseEntity.ok(res);
-//        }
-//
-//        LocalDate today = LocalDate.now();
-//        LocalDate sixthDate = today.plusDays(6);
-//        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd-MM-yyyy");
-//
-//        Set<String> uniqueKeys = new HashSet<>();
-//
-//        for (Booking booking : booked) {
-//            if (!"In-Progress".equalsIgnoreCase(booking.getStatus())) {
-//                continue;
-//            }
-//
-//            try {
-//                LocalDate serviceDate = LocalDate.parse(booking.getServiceDate(), formatter);
-//                if (serviceDate.equals(today)) {
-//                    String key = booking.getBookingId() + "_" + booking.getServiceDate();
-//                    if (uniqueKeys.add(key)) {
-//                        finalList.add(toResponse(booking));
-//                    }
-//                }
-//            } catch (Exception e) {
-//                continue; // skip invalid date formats
-//            }
-//
-//            try {
-//                response = doctorFeign.getDoctorSaveDetailsByBookingId(booking.getBookingId()).getBody();
-//            } catch (Exception e) {
-//                continue;
-//            }
-//
-//            if (response != null && response.getData() != null) {
-//                saveDetails = new ObjectMapper().convertValue(response.getData(), DoctorSaveDetailsDTO.class);
-//            } else {
-//                continue;
-//            }
-//
-//            if (saveDetails.getTreatments() != null &&
-//                saveDetails.getTreatments().getGeneratedData() != null &&
-//                !saveDetails.getTreatments().getGeneratedData().isEmpty()) {
-//
-//                for (TreatmentDetailsDTO details : saveDetails.getTreatments().getGeneratedData().values()) {
-//                    if (details.getDates() != null) {
-//                        for (DatesDTO d : details.getDates()) {
-//                            try {
-//                                LocalDate treatmentDate = LocalDate.parse(d.getDate(), formatter);
-//                                LocalDate serviceDate = LocalDate.parse(booking.getServiceDate(), formatter);
-//                                if (!treatmentDate.isBefore(today)
-//                                        && !treatmentDate.isAfter(sixthDate)
-//                                        && !treatmentDate.isBefore(serviceDate)) {
-//
-//                                    Booking bkng = new Booking(booking);
-//                                    bkng.setFollowupDate(treatmentDate.format(formatter));
-//                                    bkng.setStatus("In-Progress");
-//
-//                                    String key = booking.getBookingId() + "_" + bkng.getFollowupDate();
-//                                    if (uniqueKeys.add(key)) {
-//                                        finalList.add(toResponse(bkng));
-//                                    }
-//                                    break;
-//                                }
-//                            } catch (Exception e) {
-//                                continue;
-//                            }
-//                        }
-//                    }
-//                }
-//
-//            } else if (saveDetails.getFollowUp() != null &&
-//                    saveDetails.getFollowUp().getNextFollowUpDate() != null) {
-//
-//                try {
-//                    LocalDate followDate = LocalDate.parse(saveDetails.getFollowUp().getNextFollowUpDate(), formatter);
-//                    if (!followDate.isBefore(today) && !followDate.isAfter(sixthDate)) {
-//                        Booking bkng = new Booking(booking);
-//                        bkng.setFollowupDate(followDate.format(formatter));
-//                        bkng.setStatus("In-Progress");
-//
-//                        String key = booking.getBookingId() + "_" + bkng.getFollowupDate();
-//                        if (uniqueKeys.add(key)) {
-//                            finalList.add(toResponse(bkng));
-//                        }
-//                    }
-//                } catch (Exception e) {
-//                    continue;
-//                }
-//
-//            } else if (booking.getConsultationExpiration() != null) {
-//                try {
-//                    int days = Integer.parseInt(booking.getConsultationExpiration().replaceAll("\\D+", ""));
-//                    LocalDate expDate = today.plusDays(days);
-//
-//                    for (int i = 1; i <= 6; i++) {
-//                        LocalDate date = today.plusDays(i);
-//                        if ((!date.isAfter(sixthDate)) && (date.isBefore(expDate) || date.equals(expDate))) {
-//                            Booking bkng = new Booking(booking);
-//                            bkng.setFollowupDate(date.format(formatter));
-//                            bkng.setStatus("In-Progress");
-//
-//                            String key = booking.getBookingId() + "_" + bkng.getFollowupDate();
-//                            if (uniqueKeys.add(key)) {
-//                                finalList.add(toResponse(bkng));
-//                            }
-//                            break;
-//                        }
-//                    }
-//                } catch (Exception e) {
-//                    continue;
-//                }
-//            }
-//        }
-//
-//        res.setStatusCode(200);
-//        res.setHttpStatus(HttpStatus.OK);
-//        res.setMessage(finalList.isEmpty()
-//                ? "No In-Progress or Today appointments found"
-//                : "In-Progress appointments found");
-//        res.setData(finalList);
-//
-//    } catch (Exception e) {
-//        res.setStatusCode(500);
-//        res.setHttpStatus(HttpStatus.INTERNAL_SERVER_ERROR);
-//        res.setMessage("Error: " + e.getMessage());
-//    }
-//
-//    return ResponseEntity.status(res.getStatusCode()).body(res);
-//}
 		 
 //		public ResponseEntity<?> getInProgressAppointmentsByCustomerId(String customerId) {
 //		    ResponseStructure<List<BookingResponse>> res = new ResponseStructure<>();
@@ -2498,218 +2511,6 @@ public class BookingService_ServiceImpl implements BookingService_Service {
 //		    }
 //
 //		    return ResponseEntity.status(res.getStatusCode()).body(res);
-//		}
-
-//		@Override
-//		public ResponseEntity<?> getInProgressAppointmentsByPatientId(String patientId) {
-//		    ResponseStructure<List<BookingResponse>> res = new ResponseStructure<>();
-//		    List<BookingResponse> finalList = new ArrayList<>();
-//		    Response response = new Response();
-//		    DoctorSaveDetailsDTO saveDetails = new DoctorSaveDetailsDTO();
-//
-//		    try {
-//		        List<Booking> booked = repository.findByPatientId(patientId);
-//		        if (booked == null || booked.isEmpty()) {
-//		            res.setStatusCode(200);
-//		            res.setHttpStatus(HttpStatus.OK);
-//		            res.setMessage("No bookings found for patient");
-//		            res.setData(finalList);
-//		            return ResponseEntity.ok(res);
-//		        }
-//
-//		        LocalDate today = LocalDate.now();
-//		        LocalDate sixthDate = today.plusDays(6);
-//		        LocalDate exp = null;
-//
-//		        for (Booking booking : booked) {
-//		            if (!"In-Progress".equalsIgnoreCase(booking.getStatus())) {
-//		                continue;
-//		            }
-//
-//		            // ✅ Safely parse service/followup dates
-//		            LocalDate ld = null;
-//		            if (booking.getFollowupDate() != null) {
-//		                ld = parseDate(booking.getFollowupDate());
-//		            } else if (booking.getServiceDate() != null) {
-//		                ld = parseDate(booking.getServiceDate());
-//		            }
-//
-//		            if (ld == null || ld.isAfter(sixthDate)) {
-//		                continue; // skip invalid or far future dates
-//		            }
-//
-//		            // ✅ Fetch doctor save details
-//		            try {
-//		                response = doctorFeign.getDoctorSaveDetailsByBookingId(booking.getBookingId()).getBody();
-//		            } catch (Exception e) {
-//		                System.out.println("DoctorFeign error: " + e.getMessage());
-//		            }
-//
-//		            if (response != null && response.getData() != null) {
-//		                saveDetails = new ObjectMapper().convertValue(response.getData(), DoctorSaveDetailsDTO.class);
-//		            }
-//
-//		            // ✅ Treatments case
-//		            if (saveDetails.getTreatments() != null &&
-//		                saveDetails.getTreatments().getGeneratedData() != null &&
-//		                !saveDetails.getTreatments().getGeneratedData().isEmpty()) {
-//
-//		                // Flatten all treatment dates
-//		                List<LocalDate> allDates = saveDetails.getTreatments().getGeneratedData().values().stream()
-//		                        .filter(Objects::nonNull)
-//		                        .flatMap(details -> details.getDates() != null
-//		                                ? details.getDates().stream().map(d -> parseDate(d.getDate()))
-//		                                : Stream.empty())
-//		                        .filter(Objects::nonNull)
-//		                        .sorted()
-//		                        .toList();
-//
-//		                int totalSittingsSum = saveDetails.getTreatments().getGeneratedData().values().stream()
-//		                        .filter(Objects::nonNull)
-//		                        .mapToInt(d -> d.getTotalSittings() != null ? d.getTotalSittings() : 0)
-//		                        .sum();
-//
-//		                int pendingSittingsSum = saveDetails.getTreatments().getGeneratedData().values().stream()
-//		                        .filter(Objects::nonNull)
-//		                        .mapToInt(d -> d.getSittings() != null ? d.getSittings() : 0)
-//		                        .sum();
-//
-//		                AtomicInteger takenSittingsCount = new AtomicInteger(0);
-//
-//		                // Determine next follow-up date
-//		                Optional<LocalDate> nextFollowupOpt = allDates.stream()
-//		                        .map(sittingDate -> {
-//		                            boolean sittingBooked = false;
-//		                            try {
-//		                                Booking resp = repository.findByPatientIdAndFollowupDate(
-//		                                        booking.getPatientId(),
-//		                                        sittingDate.format(DateTimeFormatter.ofPattern("yyyy-MM-dd"))
-//		                                );
-//		                                if (resp != null) {
-//		                                    sittingBooked = true;
-//		                                    takenSittingsCount.incrementAndGet();
-//		                                }
-//		                            } catch (Exception ex) {
-//		                                System.err.println("Error checking booking for date "
-//		                                        + sittingDate + ": " + ex.getMessage());
-//		                            }
-//
-//		                            if (booking.getFollowupDate() != null) {
-//		                                LocalDate fup = parseDate(booking.getFollowupDate());
-//		                                if (fup != null) {
-//		                                    if (fup.isBefore(today)) {
-//		                                        return allDates.stream().filter(f -> f.isAfter(today)).findFirst().orElse(null);
-//		                                    } else if (fup.isEqual(today)) {
-//		                                        return sittingBooked
-//		                                                ? allDates.stream().filter(f -> f.isAfter(today)).findFirst().orElse(null)
-//		                                                : sittingDate;
-//		                                    } else {
-//		                                        return null;
-//		                                    }
-//		                                }
-//		                            }
-//		                            return allDates.stream().findFirst().orElse(null);
-//		                        })
-//		                        .filter(Objects::nonNull)
-//		                        .findFirst();
-//
-//		                LocalDate lastSitting = allDates.get(allDates.size() - 1);
-//		                if (lastSitting.equals(LocalDate.now()) || lastSitting.isAfter(LocalDate.now())) {
-//		                    exp = lastSitting.plusDays(Integer.parseInt(booking.getConsultationExpiration().replaceAll("\\D+", "")));
-//		                    finalList = inprogressAppointmentsByConsultationExpiration(exp, booking, saveDetails);
-//		                }
-//
-//		                booking.setTotalSittings(totalSittingsSum);
-//		                booking.setPendingSittings(pendingSittingsSum);
-//		                booking.setTakenSittings(takenSittingsCount.get());
-//		                booking.setCurrentSitting(pendingSittingsSum);
-//		                nextFollowupOpt.ifPresent(d -> booking.setFollowupDate(d.format(DateTimeFormatter.ofPattern("yyyy-MM-dd"))));
-//
-//		                finalList.add(toResponse(booking));
-//
-//		            }
-//		            // ✅ Follow-up case
-//		            else if (saveDetails.getFollowUp() != null &&
-//		                    saveDetails.getFollowUp().getNextFollowUpDate() != null) {
-//		                try {
-//		                    int days = 0;
-//		                    if (exp == null) {
-//		                        days = Integer.parseInt(booking.getConsultationExpiration().replaceAll("\\D+", ""));
-//		                        LocalDate serviceDate = parseDate(booking.getServiceDate());
-//		                        exp = serviceDate.plusDays(days);
-//		                    }
-//
-//		                    LocalDate followDate = LocalDate.parse(
-//		                            saveDetails.getFollowUp().getNextFollowUpDate(),
-//		                            DateTimeFormatter.ISO_LOCAL_DATE_TIME
-//		                    );
-//
-//		                    if (!followDate.isBefore(today) && !followDate.isAfter(sixthDate) && !followDate.isAfter(exp)) {
-//		                        Booking bkng = new Booking(booking);
-//		                        bkng.setFollowupDate(followDate.format(DateTimeFormatter.ofPattern("yyyy-MM-dd")));
-//		                        bkng.setStatus("In-Progress");
-//		                        finalList.add(toResponse(bkng));
-//		                    }
-//		                } catch (Exception e) {
-//		                    System.out.println("Follow-up parse error: " + e.getMessage());
-//		                }
-//		            }
-//		            // ✅ Consultation expiration fallback
-//		            else if (booking.getConsultationExpiration() != null) {
-//		                try {
-//		                    int days = 0;
-//		                    if (exp == null) {
-//		                        days = Integer.parseInt(booking.getConsultationExpiration().replaceAll("\\D+", ""));
-//		                        LocalDate serviceDate = parseDate(booking.getServiceDate());
-//		                        exp = serviceDate.plusDays(days);
-//		                    }
-//
-//		                    for (int i = 0; i <= 6; i++) {
-//		                        LocalDate date = today.plusDays(i);
-//		                        if ((!date.isAfter(sixthDate)) && (date.isBefore(exp) || date.equals(exp))) {
-//		                            Booking bkng = new Booking(booking);
-//		                            bkng.setFollowupDate(date.format(DateTimeFormatter.ofPattern("yyyy-MM-dd")));
-//		                            bkng.setStatus("In-Progress");
-//		                            finalList.add(toResponse(bkng));
-//		                        }
-//		                    }
-//		                } catch (Exception e) {
-//		                    System.out.println("Expiration fallback error: " + e.getMessage());
-//		                }
-//		            }
-//		        }
-//
-//		        res.setStatusCode(200);
-//		        res.setHttpStatus(HttpStatus.OK);
-//		        res.setMessage(finalList.isEmpty()
-//		                ? "No In-Progress or Today appointments found"
-//		                : "In-Progress appointments found");
-//		        res.setData(finalList);
-//
-//		    } catch (Exception e) {
-//		        res.setStatusCode(500);
-//		        res.setHttpStatus(HttpStatus.INTERNAL_SERVER_ERROR);
-//		        res.setMessage("Error: " + e.getMessage());
-//		    }
-//
-//		    return ResponseEntity.status(res.getStatusCode()).body(res);
-//		}
-//
-//		/**
-//		 * ✅ Utility: Parse both yyyy-MM-dd and dd-MM-yyyy formats
-//		 */
-//		private LocalDate parseDate(String dateStr) {
-//		    if (dateStr == null) return null;
-//		    List<DateTimeFormatter> formatters = Arrays.asList(
-//		            DateTimeFormatter.ofPattern("yyyy-MM-dd"),
-//		            DateTimeFormatter.ofPattern("dd-MM-yyyy")
-//		    );
-//		    for (DateTimeFormatter fmt : formatters) {
-//		        try {
-//		            return LocalDate.parse(dateStr, fmt);
-//		        } catch (Exception ignored) {}
-//		    }
-//		    return null;
 //		}
 
 		@Override
@@ -3782,20 +3583,30 @@ public class BookingService_ServiceImpl implements BookingService_Service {
 			    if (dto.getBookedAt() != null && !dto.getBookedAt().isEmpty()) {
 			        entity.setBookedAt(dto.getBookedAt());
 			    }
-
 				if(dto.getFollowupStatus() != null && dto.getFollowupStatus().equalsIgnoreCase("no-followup")) {
 			        entity.setStatus("Completed");
-			    }
-
+			    }else {
+			    	try {
+			    		//System.out.println(dto);
+			    		if(entity.getTreatments().getGeneratedData().containsKey(dto.getTreatmentName())) {
+			    		TreatmentDetailsDTO	treatmentDetailsDTO = entity.getTreatments().getGeneratedData().get(dto.getTreatmentName());
+			    		//System.out.println(treatmentDetailsDTO);
+			    		if(treatmentDetailsDTO != null) {
+			    			for(DatesDTO datesDTO : treatmentDetailsDTO.getDates()) {
+			    				//System.out.println(datesDTO);
+			    				if(datesDTO.getDate().equals(dto.getTreatmentDate())){
+			    					datesDTO.setFollowupStatus(dto.getFollowupStatus());}
+			    				TreatmentResponseDTO treatmentResponseDTO = entity.getTreatments();
+			    				//System.out.println(treatmentResponseDTO);
+			    					entity.setTreatments(treatmentResponseDTO);		
+			    			}}}}catch(Exception e) {System.out.println(e.getMessage());}}
 			    if (dto.getVisitCount() != null) {
 			        entity.setVisitCount(dto.getVisitCount());
 			    }
-
 			    if (dto.getAttachments() != null && !dto.getAttachments().isEmpty()) {
 			    	List<byte[]> bte = new ObjectMapper().convertValue(dto.getAttachments(), new TypeReference<List<byte[]>>(){});
 			    	entity.setAttachments(bte);
 			    }
-
 			    if (dto.getConsentFormPdf() != null && !dto.getConsentFormPdf().isEmpty()) {
 			        entity.setConsentFormPdf(Base64.getDecoder().decode(dto.getConsentFormPdf()));
 			    }
@@ -3817,10 +3628,9 @@ public class BookingService_ServiceImpl implements BookingService_Service {
 			        entity.setConsultationExpiration(dto.getConsultationExpiration());
 			    }
 			    
-			    if (dto.getFollowupStatus() != null) {
-			        entity.setFollowupStatus(dto.getFollowupStatus());
-			    }
-		    
+//			    if (dto.getFollowupStatus() != null) {
+//			        entity.setFollowupStatus(dto.getFollowupStatus());
+//			    }
 			    Booking e = repository.save(entity);			
 				if(e != null){	
 				return new ResponseEntity<>(ResponseStructure.buildResponse(e,

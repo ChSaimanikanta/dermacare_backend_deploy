@@ -410,6 +410,21 @@ public ResponseEntity<Response> getAverageRatingByDoctorId( @PathVariable String
 			 }
 	   
    }
+   @GetMapping("/getDoctorsAndClinicDetailsByBranchId/{hospitalId}/{branchId}/{subServiceId}/{consultationType}")
+   public ResponseEntity<Object> getDoctorsByHospitalBranchAndSubService(
+           @PathVariable String hospitalId,
+           @PathVariable String branchId,
+           @PathVariable String subServiceId,
+           @PathVariable int consultationType) throws JsonProcessingException {
+
+       // Call service method with consultationType
+       Response response = customerService.getDoctorsByHospitalBranchAndSubService(
+               hospitalId, branchId, subServiceId, consultationType);
+           return ResponseEntity.status(response.getStatus()).body(response.getData());
+      
+   }
+
+
    
    //DOCTORANDHOSPITALDETAILSBYSUBSERVICEID
    
@@ -556,17 +571,17 @@ public ResponseEntity<Response> getAverageRatingByDoctorId( @PathVariable String
 	   return customerService.retrieveAppointnmentsByPatientId(patientId);
  }
    
-   
-   @GetMapping("/bookings/byInput/{input}")
-   public ResponseEntity<?> getInprogressBookingsByInput(
-			 @PathVariable String input){
-	   return customerService.retrieveAppointnmentsByInput(input);
- }
-   
+ 
    @PostMapping("/block/slot/whileBooking")
    public boolean blockSlot(
 		  @RequestBody TempBlockingSlot tempBlockingSlot){
 	   return customerService.blockSlot(tempBlockingSlot);
+ }
+   
+   @GetMapping("/gcmToken/{token}")
+   public CustomerDTO getCustomerByToken(
+			 @PathVariable String token ){
+	   return customerService.getCustomerByToken(token);
  }
 
 }

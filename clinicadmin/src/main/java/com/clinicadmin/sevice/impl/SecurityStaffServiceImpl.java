@@ -1,6 +1,8 @@
 package com.clinicadmin.sevice.impl;
 
+import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
+import java.util.Base64;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -88,49 +90,59 @@ public class SecurityStaffServiceImpl implements SecurityStaffService {
 
 	@Override
 	public ResponseStructure<SecurityStaff> updateSecurityStaff(SecurityStaff staff) {
-		Optional<SecurityStaff> existingOpt = repository.findById(staff.getSecurityStaffId());
-		if (existingOpt.isEmpty()) {
-			return ResponseStructure.buildResponse(null, "Security staff not found", HttpStatus.NOT_FOUND,
-					HttpStatus.NOT_FOUND.value());
-		}
+	    Optional<SecurityStaff> existingOpt = repository.findById(staff.getSecurityStaffId());
+	    if (existingOpt.isEmpty()) {
+	        return ResponseStructure.buildResponse(null, "Security staff not found",
+	                HttpStatus.NOT_FOUND, HttpStatus.NOT_FOUND.value());
+	    }
 
-		List<SecurityStaff> contactOwners = repository.findByContactNumber(staff.getContactNumber());
-		boolean conflict = contactOwners.stream()
-				.anyMatch(s -> !s.getSecurityStaffId().equals(staff.getSecurityStaffId()));
+	    List<SecurityStaff> contactOwners = repository.findByContactNumber(staff.getContactNumber());
+	    boolean conflict = contactOwners.stream()
+	            .anyMatch(s -> !s.getSecurityStaffId().equals(staff.getSecurityStaffId()));
 
-		if (conflict) {
-			return ResponseStructure.buildResponse(null, "Contact number already exists", HttpStatus.CONFLICT,
-					HttpStatus.CONFLICT.value());
-		}
+	    if (conflict) {
+	        return ResponseStructure.buildResponse(null, "Contact number already exists",
+	                HttpStatus.CONFLICT, HttpStatus.CONFLICT.value());
+	    }
 
-		SecurityStaff existing = existingOpt.get();
+	    SecurityStaff existing = existingOpt.get();
 
-		existing.setFullName(staff.getFullName());
-		existing.setHospitalName(staff.getHospitalName());
-		existing.setBranchId(staff.getBranchId());
-		existing.setRole(staff.getRole());
-		existing.setPermissions(staff.getPermissions());
-		existing.setDateOfBirth(staff.getDateOfBirth());
-		existing.setGender(staff.getGender());
-		existing.setContactNumber(staff.getContactNumber());
-		existing.setGovermentId(staff.getGovermentId());
-		existing.setDateOfJoining(staff.getDateOfJoining());
-		existing.setDepartment(staff.getDepartment());
-		existing.setAddress(staff.getAddress());
-		existing.setBankAccountDetails(staff.getBankAccountDetails());
-		existing.setPoliceVerification(staff.getPoliceVerification());
-		existing.setPoliceVerificationCertificate(staff.getPoliceVerificationCertificate());
-		existing.setMedicalFitnessCertificate(staff.getMedicalFitnessCertificate());
-		existing.setEmailId(staff.getEmailId());
-		existing.setTraningOrGuardLicense(staff.getTraningOrGuardLicense());
-		existing.setPreviousEmployeeHistory(staff.getPreviousEmployeeHistory());
-		existing.setProfilePicture(staff.getProfilePicture());
-		existing.setShiftTimingsOrAvailability(staff.getShiftTimingsOrAvailability());
+	    // ---------- Update Normal Fields ----------
+	    existing.setFullName(staff.getFullName());
+	    existing.setHospitalName(staff.getHospitalName());
+	    existing.setBranchId(staff.getBranchId());
+	    existing.setRole(staff.getRole());
+	    existing.setPermissions(staff.getPermissions());
+	    existing.setDateOfBirth(staff.getDateOfBirth());
+	    existing.setGender(staff.getGender());
+	    existing.setContactNumber(staff.getContactNumber());
+	    existing.setGovermentId(staff.getGovermentId());
+	    existing.setDateOfJoining(staff.getDateOfJoining());
+	    existing.setDepartment(staff.getDepartment());
+	    existing.setAddress(staff.getAddress());
+	    existing.setBankAccountDetails(staff.getBankAccountDetails());
+	    existing.setEmailId(staff.getEmailId());
+	    existing.setTraningOrGuardLicense(staff.getTraningOrGuardLicense());
+	    existing.setPreviousEmployeeHistory(staff.getPreviousEmployeeHistory());
+	    existing.setShiftTimingsOrAvailability(staff.getShiftTimingsOrAvailability());
 
-		SecurityStaff updated = repository.save(existing);
+	    // ---------- Encode Files Before Save ----------
+	    existing.setPoliceVerification(SecurityStaffMapper.encode(staff.getPoliceVerification()));
+	    existing.setPoliceVerificationCertificate(SecurityStaffMapper.encode(staff.getPoliceVerificationCertificate()));
+	    existing.setMedicalFitnessCertificate(SecurityStaffMapper.encode(staff.getMedicalFitnessCertificate()));
+	    existing.setProfilePicture(SecurityStaffMapper.encode(staff.getProfilePicture()));
 
-		return ResponseStructure.buildResponse(updated, "Security staff updated successfully", HttpStatus.OK,
-				HttpStatus.OK.value());
+	    // ---------- Save ----------
+	    SecurityStaff updated = repository.save(existing);
+
+	    // ---------- Decode Before Response ----------
+	    updated.setPoliceVerification(SecurityStaffMapper.decode(updated.getPoliceVerification()));
+	    updated.setPoliceVerificationCertificate(SecurityStaffMapper.decode(updated.getPoliceVerificationCertificate()));
+	    updated.setMedicalFitnessCertificate(SecurityStaffMapper.decode(updated.getMedicalFitnessCertificate()));
+	    updated.setProfilePicture(SecurityStaffMapper.decode(updated.getProfilePicture()));
+
+	    return ResponseStructure.buildResponse(updated, "Security staff updated successfully",
+	            HttpStatus.OK, HttpStatus.OK.value());
 	}
 
 	@Override
@@ -156,16 +168,33 @@ public class SecurityStaffServiceImpl implements SecurityStaffService {
 
 	@Override
 	public ResponseStructure<String> deleteSecurityStaff(String staffId) {
-		Optional<SecurityStaff> existing = repository.findById(staffId);
-		if (existing.isEmpty()) {
-			return ResponseStructure.buildResponse(null, "Staff not found", HttpStatus.NOT_FOUND,
-					HttpStatus.NOT_FOUND.value());
-		}
+	    Optional<SecurityStaff> existing = repository.findById(staffId);
+	    if (existing.isEmpty()) {
+	        return ResponseStructure.buildResponse(
+	            null,
+	            "Staff not found",
+	            HttpStatus.NOT_FOUND,
+	            HttpStatus.NOT_FOUND.value()
+	        );
+	    }
 
-		repository.deleteById(staffId);
-		return ResponseStructure.buildResponse(staffId, "Staff deleted successfully", HttpStatus.OK,
-				HttpStatus.OK.value());
+	    // ✅ Delete staff record
+	    repository.deleteById(staffId);
+
+	    // ✅ Delete corresponding credentials if exist
+	    Optional<DoctorLoginCredentials> credentials = credentialsRepository.findByStaffId(staffId);
+	    if (credentials.isPresent()) {
+	        credentialsRepository.deleteById(credentials.get().getId());
+	    }
+
+	    return ResponseStructure.buildResponse(
+	        staffId,
+	        "Staff and credentials deleted successfully",
+	        HttpStatus.OK,
+	        HttpStatus.OK.value()
+	    );
 	}
+
 	
 	@Override
 	public ResponseStructure<List<SecurityStaffDTO>> getSecurityStaffByClinicIdAndBranchId(String clinicId, String branchId) {
@@ -175,8 +204,8 @@ public class SecurityStaffServiceImpl implements SecurityStaffService {
 	        return ResponseStructure.buildResponse(
 	                null,
 	                "No security staff found for Clinic ID: " + clinicId + " and Branch ID: " + branchId,
-	                HttpStatus.NOT_FOUND,
-	                HttpStatus.NOT_FOUND.value()
+	                HttpStatus.OK,
+	                HttpStatus.OK.value()
 	        );
 	    }
 

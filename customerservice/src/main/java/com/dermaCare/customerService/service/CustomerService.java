@@ -129,7 +129,11 @@ public interface CustomerService {
 	public ResponseEntity<?> retrieveAppointnmentsByRelation(String customerId);
 	public ResponseEntity<?> getInprogressBookingsByCustomerId(String customerId);
 	public ResponseEntity<?> retrieveAppointnmentsByPatientId(String patientId);
-	public ResponseEntity<?> retrieveAppointnmentsByInput(String input);
 	public ResponseEntity<?> getInprogressBookingsByPatientId(String patientId) ;
 	public boolean blockSlot(TempBlockingSlot tempBlockingSlot);
+	
+	public CustomerDTO getCustomerByToken(String token);
+
+	Response getDoctorsByHospitalBranchAndSubService(String hospitalId, String branchId, String subServiceId,
+			int consultationType) throws JsonProcessingException;
 }

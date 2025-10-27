@@ -4,42 +4,50 @@ import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.MonthDay;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.LinkedHashSet;
+import java.util.LinkedList;
 import java.util.List;
-import java.util.Optional;
+import java.util.Map;
 import java.util.Set;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import com.dermacare.notification_service.config.FirbaseConfig;
 import com.dermacare.notification_service.dto.BookingResponse;
+import com.dermacare.notification_service.dto.CustomerInfo;
+import com.dermacare.notification_service.dto.CustomerOnbordingDTO;
 import com.dermacare.notification_service.dto.DoctorSaveDetails;
 import com.dermacare.notification_service.dto.Medicines;
 import com.dermacare.notification_service.dto.NotificationDTO;
 import com.dermacare.notification_service.dto.NotificationResponse;
 import com.dermacare.notification_service.dto.NotificationToCustomer;
+import com.dermacare.notification_service.dto.PriceDropAlertDto;
 import com.dermacare.notification_service.dto.ResBody;
 import com.dermacare.notification_service.dto.Response;
 import com.dermacare.notification_service.dto.ResponseStructure;
 import com.dermacare.notification_service.entity.Booking;
 import com.dermacare.notification_service.entity.NotificationEntity;
+import com.dermacare.notification_service.entity.PriceDropAlertEntity;
 import com.dermacare.notification_service.feign.BookServiceFeign;
 import com.dermacare.notification_service.feign.CllinicFeign;
 import com.dermacare.notification_service.feign.DoctorFeign;
 import com.dermacare.notification_service.notificationFactory.SendAppNotification;
 import com.dermacare.notification_service.repository.NotificationRepository;
+import com.dermacare.notification_service.repository.PriceDropAlertNotifications;
 import com.dermacare.notification_service.service.ServiceInterface;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
-
 import feign.FeignException;
 
 
@@ -60,7 +68,13 @@ public class ServiceImpl implements ServiceInterface{
 		  
     @Autowired
     private DoctorFeign doctorFeign;
-	
+    
+    @Autowired
+    private PriceDropAlertNotifications priceDropAlertNotifications;
+    
+    @Autowired
+    private FirbaseConfig firbaseConfig;
+    	
 	public String jwtToken;
 	public String tokenExpireTime;
 
@@ -69,7 +83,10 @@ public class ServiceImpl implements ServiceInterface{
 	 BookingResponse bookingResponse;
 	 
 	 private boolean isCalledAlready;
-	
+	 
+	 String imag = null;
+	 
+	 
 	@Override
 	public void createNotification(BookingResponse bookingDTO) {
 		if(!bookings.contains(bookingDTO.getBookingId())) {
@@ -844,4 +861,192 @@ public class ServiceImpl implements ServiceInterface{
 	        }
 	    }
 		
+	 
+	 public ResponseEntity<?> sendImageNotifications(PriceDropAlertDto priceDropAlertDto){
+		 Response res = new Response();
+		 try {
+			 if(priceDropAlertDto.getImage() != null) {
+				 imag = priceDropAlertDto.getImage();
+				// firbaseConfig.uploadBase64Image(imag);
+			 }else {
+				 imag = "";
+			 }			 
+			 if(priceDropAlertDto.getSendAll()) {
+			 List<CustomerOnbordingDTO> cusmr =  new ObjectMapper().convertValue(cllinicFeign.getAllCustomers().getBody().getData(), new TypeReference< List<CustomerOnbordingDTO>>() {});			 
+			// System.out.println(cusmr);
+			 cusmr.stream().map(n->{  if(n.getDeviceId() != null) {
+			 appNotification.sendPushNotificationForImage(n.getDeviceId(),priceDropAlertDto.getTitle(),priceDropAlertDto.getBody(), "Notification",
+					    "NotificationScreen","default","");
+			// System.out.println("notification sent successfully");
+			 }
+			 return n;}).toList();
+			 }else {
+				 priceDropAlertDto.getTokens().stream().map(t->{appNotification.sendPushNotificationForImage(t,priceDropAlertDto.getTitle(),priceDropAlertDto.getBody(), "Notification",
+						    "NotificationScreen","default","");
+				 return t;}).toList();}
+			 PriceDropAlertEntity en = new ObjectMapper().convertValue(priceDropAlertDto, PriceDropAlertEntity.class);
+			 en.setLocalDateTime(LocalDateTime.now(ZoneId.of("Asia/Kolkata")));
+			 priceDropAlertNotifications.save(en); 
+			 res.setStatus(200);
+             res.setMessage("successfully sent notification");
+             res.setSuccess(true);
+		 }catch(Exception e) {
+			 res.setStatus(500);
+             res.setMessage(e.getMessage());
+             res.setSuccess(false);
+		 }
+		 return ResponseEntity.status(res.getStatus()).body(res);
+	 }
+	 
+	 
+	 public ResponseEntity<?> priceDropNotifications(String clinicId,String branchId){
+		 Response res = new Response();
+		 try {
+			List<PriceDropAlertEntity> enty = priceDropAlertNotifications.findByClinicIdAndBranchId(clinicId, branchId);
+			//System.out.println(enty);
+			List<PriceDropAlertDto> dto = null;
+			List<PriceDropAlertDto> response = new LinkedList<>();
+			 CustomerOnbordingDTO cdto = null;
+				 if(enty != null) {	
+				 ObjectMapper mapper = new ObjectMapper();
+				 mapper.registerModule(new JavaTimeModule());
+			     mapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+				 dto = mapper.convertValue(enty,new TypeReference<List<PriceDropAlertDto>>(){});				
+				 //System.out.println(dto);
+				 for(PriceDropAlertDto obj : dto){
+					// System.out.println(obj);
+				 obj.setImage(null);
+				 if(obj.getTokens() != null) {
+				 for(String s : obj.getTokens()){
+				 try {
+				 cdto = cllinicFeign.getCustomerByToken(s);
+				//System.out.println(cdto);
+				 }catch(Exception e) {System.out.println(e.getMessage());}				
+				 if(cdto != null) {	
+				 Map<String,CustomerInfo> info = new HashMap<>();
+				 CustomerInfo cInfo = new CustomerInfo();
+				 cInfo.setMobileNumber(cdto.getMobileNumber());
+				 cInfo.setCustomerId(cdto.getCustomerId());
+				 cInfo.setPatientId(cdto.getPatientId());
+				 info.put(cdto.getFullName(), cInfo);
+				 if(obj.getCustomerData() != null) {
+				 List<Map<String,CustomerInfo>> customerData =	obj.getCustomerData();
+				 customerData.add(info);
+				 obj.setCustomerData(customerData);
+				 }else{
+				 List<Map<String,CustomerInfo>> customerData = new ArrayList<>();
+				 customerData.add(info);
+				 obj.setCustomerData(customerData);
+				 }}}}
+				 obj.setTokens(null);
+				 response.add(obj);}}
+			 res.setData(response);
+			 res.setMessage("fetched successfully");
+			 res.setStatus(200);
+			 res.setSuccess(true);
+		 }catch(Exception e) {
+			 res.setMessage(e.getMessage());
+			 res.setStatus(500);
+			 res.setSuccess(false);
+		 }
+		 return ResponseEntity.status(res.getStatus()).body(res);		 
+	 }
+	 	
+	 
+	 @Scheduled(cron = "0 30 8 * * ?")
+	 public void sendBirthdayWishes() {
+		 try {
+			 List<CustomerOnbordingDTO> cusmr =  new ObjectMapper().convertValue(cllinicFeign.getAllCustomers().getBody().getData(), new TypeReference< List<CustomerOnbordingDTO>>() {});
+			 //System.out.println(cusmr);
+			 cusmr.stream().map(n->{ 
+				 if(n.getDateOfBirth() != null) {
+				 DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd-MM-yyyy");
+			        LocalDate dob = LocalDate.parse(n.getDateOfBirth(), formatter);	
+			        //System.out.println(dob);
+			        LocalDate today = LocalDate.now();	
+			       // System.out.println(today);
+			        MonthDay customerdobMonthDay = MonthDay.from(dob);
+			        //System.out.println(customerdobMonthDay);
+			        MonthDay todayMonthDay = MonthDay.from(today);	
+			        //System.out.println(customerdobMonthDay);
+			        if (customerdobMonthDay.equals(todayMonthDay)) {
+			        	//System.out.println(n);
+			        	if(n.getDeviceId() != null) {
+			        		System.out.println(n.getDeviceId());
+			 appNotification.sendPushNotification(n.getDeviceId(),"🎉 Happy Birthday, " + n.getFullName() + "!","Your health and happiness are our priority. Have a great birthday!", "birthdayGreeting",
+					    "bithdayGreetingsScreen","default");
+			        	//System.out.println("notifications sent successfully");
+			 }}
+			 return n;}return null;}).toList();
+		 }catch(Exception e) {
+			 System.out.println(e.getMessage());
+		 }
+		 
+	 }	
+	 
+	 	
+	 public ResponseEntity<?> updatePriceDropAlert(
+	         String clinicId,
+	        String branchId,
+	        String id,
+	        PriceDropAlertDto dto) {
+
+	     Response res = new Response();
+	     try {
+	         PriceDropAlertEntity existingList = priceDropAlertNotifications.findByClinicIdAndBranchIdAndId(clinicId, branchId,id);
+	         if (existingList == null) {
+	             res.setMessage("No Price Drop Alert found for Clinic ID: " + clinicId + " and Branch ID: " + branchId);
+	             res.setStatus(404);
+	             res.setSuccess(false);
+	             return ResponseEntity.status(404).body(res);
+	         }
+	         ObjectMapper mapper = new ObjectMapper();
+	         List<PriceDropAlertEntity> updatedList = new ArrayList<>();
+	             // Map DTO → temporary entity
+	             PriceDropAlertEntity updatedEntity = mapper.convertValue(dto, PriceDropAlertEntity.class);	            
+	             updatedEntity.setId(existingList.getId());	            
+	             updatedEntity = priceDropAlertNotifications.save(updatedEntity);
+	             updatedList.add(updatedEntity);	        
+	         res.setData(updatedList);
+	         res.setMessage("Price drop alert(s) updated successfully");
+	         res.setStatus(200);
+	         res.setSuccess(true);
+	     } catch (Exception e) {
+	         res.setMessage(e.getMessage());
+	         res.setStatus(500);
+	         res.setSuccess(false);
+	     }
+	     return ResponseEntity.status(res.getStatus()).body(res);
+	 }
+
+	 	 
+	 public ResponseEntity<?> deletePriceDropAlerts(
+	         String clinicId,
+	        String branchId,
+	        String id) {
+
+	     Response res = new Response();
+	     try {
+	         // Fetch all matching records
+	         PriceDropAlertEntity existingList = priceDropAlertNotifications.findByClinicIdAndBranchIdAndId(clinicId, branchId,id);
+	         if (existingList == null) {
+	             res.setMessage("No Price Drop Alerts found for Clinic ID: " + clinicId + " and Branch ID: " + branchId);
+	             res.setStatus(404);
+	             res.setSuccess(false);
+	             return ResponseEntity.status(404).body(res);
+	         }
+	         // Delete all matching records
+	         priceDropAlertNotifications.delete(existingList);
+	         res.setMessage("Price drop alerts deleted successfully for Clinic ID: " + clinicId + " and Branch ID: " + branchId);
+	         res.setStatus(200);
+	         res.setSuccess(true);	        
+	     } catch (Exception e) {
+	         res.setMessage(e.getMessage());
+	         res.setStatus(500);
+	         res.setSuccess(false);
+	     }
+
+	     return ResponseEntity.status(res.getStatus()).body(res);
+	 } 
+	 
 }
